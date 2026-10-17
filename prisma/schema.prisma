@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============ TEAM ============
+model TeamMember {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  role      String   @default("sales") // owner | manager | sales
+  avatarColor String @default("#10b981")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  leads     Lead[]
+  tasks     Task[]
+}
+
+// ============ LEADS ============
+model Lead {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String
+  email       String?
+  company     String?
+  city        String?
+  address     String?
+  source      String   @default("manual") // manual | whatsapp | facebook | instagram | website | phone_call | referral | walk_in | excel_import | qr_code
+  status      String   @default("new") // new | contacted | in_progress | quotation | negotiation | won | lost
+  priority    String   @default("warm") // hot | warm | cold
+  value       Float    @default(0) // expected deal value
+  currency    String   @default("INR")
+  requirement String?  // what customer needs
+  notes       String?
+  tags        String   @default("") // comma separated
+  aiScore     Int      @default(50) // 0-100 AI lead score
+  assignedToId String?
+  assignedTo  TeamMember? @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  nextFollowUpAt DateTime?
+  lostReason  String?
+  // When won -> becomes contact
+  convertedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  activities  Activity[]
+  tasks       Task[]
+  quotes      Quote[]
+}
+
+// ============ ACTIVITY TIMELINE ============
+model Activity {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type      String   // call | whatsapp | email | meeting | note | status_change | created | sms | visit
+  title     String
+  notes     String?
+  outcome   String?  // connected | no_answer | busy | interested | not_interested
+  createdAt DateTime @default(now())
+}
+
+// ============ TASKS / FOLLOW-UPS ============
+model Task {
+  id        String   @id @default(cuid())
+  title     String
+  leadId    String?
+  lead      Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type      String   @default("follow_up") // follow_up | call | meeting | visit | demo | payment
+  status    String   @default("pending") // pending | done | cancelled
+  dueAt     DateTime
+  notes     String?
+  assignedToId String?
+  assignedTo  TeamMember? @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============ CONTACTS (converted customers) ============
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  company   String?
+  city      String?
+  address   String?
+  tags      String   @default("")
+  notes     String?
+  leadId    String?  // original lead if converted
+  totalBusiness Float @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  quotes    Quote[]
+}
+
+// ============ PRODUCTS ============
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  description String?
+  price     Float    @default(0)
+  unit      String   @default("piece")
+  hsn       String?
+  taxRate   Float    @default(18) // GST %
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============ QUOTES & INVOICES ============
+model Quote {
+  id        String   @id @default(cuid())
+  quoteNo   String   @unique
+  type      String   @default("quotation") // quotation | invoice
+  status    String   @default("draft") // draft | sent | accepted | rejected | paid | partial | overdue
+  leadId    String?
+  lead      Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  customerName  String
+  customerPhone String
+  customerAddress String?
+  items     QuoteItem[]
+  subtotal  Float    @default(0)
+  taxAmount Float    @default(0)
+  discount  Float    @default(0)
+  total     Float    @default(0)
+  paidAmount Float   @default(0)
+  notes     String?
+  validUntil DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QuoteItem {
+  id        String  @id @default(cuid())
+  quoteId   String
+  quote     Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  name      String
+  quantity  Float   @default(1)
+  unit      String  @default("piece")
+  price     Float   @default(0)
+  taxRate   Float   @default(18)
+  amount    Float   @default(0)
+}
+
+// ============ SETTINGS (key-value store) ============
+model Setting {
+  key   String @id
+  value String
+}

@@ -1,0 +1,511 @@
+"use client"
+
+import React, { useCallback, useEffect, useState } from "react"
+import { useI18n } from "@/i18n"
+import { toast } from "@/hooks/use-toast"
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from "@/components/ui/sheet"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import {
+  Phone, MessageCircle, Mail, StickyNote, MapPin, Building2, Calendar, User, IndianRupee,
+  Trash2, Pencil, CheckCircle2, XCircle, FileText, Plus, Sparkles, Copy, Loader2, ClipboardList,
+} from "lucide-react"
+import {
+  api, LEAD_STATUSES, relTime, dateLabel, dateTimeLabel,
+  type Lead, type TeamMember, type Task, type Quote,
+} from "./api"
+import { StatusBadge, PriorityBadge, Avatar, STATUS_DOT, EmptyState } from "./ui-bits"
+import { LeadForm } from "./lead-form"
+
+const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
+  call: <Phone className="h-3.5 w-3.5" />,
+  whatsapp: <MessageCircle className="h-3.5 w-3.5" />,
+  email: <Mail className="h-3.5 w-3.5" />,
+  meeting: <Calendar className="h-3.5 w-3.5" />,
+  note: <StickyNote className="h-3.5 w-3.5" />,
+  status_change: <CheckCircle2 className="h-3.5 w-3.5" />,
+  created: <Plus className="h-3.5 w-3.5" />,
+  visit: <MapPin className="h-3.5 w-3.5" />,
+  sms: <MessageCircle className="h-3.5 w-3.5" />,
+}
+
+export function LeadDetail({
+  leadId,
+  open,
+  onOpenChange,
+  onChanged,
+  members,
+  onCreateQuote,
+}: {
+  leadId: string | null
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  onChanged: () => void
+  members: TeamMember[]
+  onCreateQuote: (lead: Lead) => void
+}) {
+  const { t, lang } = useI18n()
+  const [lead, setLead] = useState<Lead | null>(null)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [quotes, setQuotes] = useState<Quote[]>([])
+  const [loading, setLoading] = useState(false)
+  const [note, setNote] = useState("")
+  const [outcome, setOutcome] = useState("connected")
+  const [editOpen, setEditOpen] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiMsg, setAiMsg] = useState<string | null>(null)
+  const [followUpAt, setFollowUpAt] = useState("")
+  const [taskTitle, setTaskTitle] = useState("")
+
+  const load = useCallback(async () => {
+    if (!leadId) return
+    setLoading(true)
+    try {
+      const data = await api.get<Lead>(`/api/leads/${leadId}`)
+      setLead(data)
+      setTasks(data.tasks || [])
+      setQuotes(data.quotes || [])
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
+  }, [leadId, t])
+
+  useEffect(() => {
+    if (open && leadId) load()
+    if (!open) {
+      setAiMsg(null)
+      setNote("")
+    }
+  }, [open, leadId, load])
+
+  if (!leadId) return null
+
+  async function addActivity(type: string) {
+    if (type === "note" && !note.trim()) return
+    try {
+      await api.post(`/api/leads/${leadId}/activities`, {
+        type,
+        title: type === "note" ? "Note" : type,
+        notes: type === "note" ? note : note || null,
+        outcome: type === "call" ? outcome : null,
+      })
+      setNote("")
+      await load()
+      onChanged()
+      toast({ title: t("common.saved") })
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
+    }
+  }
+
+  async function changeStatus(status: string) {
+    try {
+      await api.patch(`/api/leads/${leadId}`, { status })
+      await load()
+      onChanged()
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
+    }
+  }
+
+  async function convertToCustomer() {
+    try {
+      await api.post(`/api/leads/${leadId}/convert`)
+      await load()
+      onChanged()
+      toast({ title: t("common.saved") })
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
+    }
+  }
+
+  async function scheduleFollowUp() {
+    if (!followUpAt || !taskTitle.trim()) {
+      toast({ title: t("common.required"), variant: "destructive" })
+      return
+    }
+    try {
+      await api.post("/api/tasks", {
+        title: taskTitle,
+        leadId,
+        type: "follow_up",
+        dueAt: new Date(followUpAt).toISOString(),
+      })
+      setTaskTitle("")
+      setFollowUpAt("")
+      await load()
+      onChanged()
+      toast({ title: t("common.saved") })
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
+    }
+  }
+
+  async function deleteTask(taskId: string) {
+    try {
+      await api.del(`/api/tasks/${taskId}`)
+      await load()
+      onChanged()
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
+    }
+  }
+
+  async function markTaskDone(taskId: string) {
+    try {
+      await api.patch(`/api/tasks/${taskId}`, { status: "done" })
+      await load()
+      onChanged()
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
+    }
+  }
+
+  async function deleteLead() {
+    try {
+      await api.del(`/api/leads/${leadId}`)
+      onOpenChange(false)
+      onChanged()
+      toast({ title: t("common.deleted") })
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
+    }
+  }
+
+  async function generateAiMessage(kind: string) {
+    setAiLoading(true)
+    try {
+      const res = await api.post<{ message: string }>("/api/ai/message", {
+        leadName: lead?.name,
+        requirement: lead?.requirement,
+        value: lead?.value,
+        language: lang === "gu" ? "Gujarati" : lang === "hi" ? "Hindi" : lang === "mr" ? "Marathi" : lang === "bn" ? "Bengali" : lang === "ta" ? "Tamil" : lang === "te" ? "Telugu" : lang === "kn" ? "Kannada" : lang === "ml" ? "Malayalam" : lang === "pa" ? "Punjabi" : lang === "or" ? "Odia" : lang === "as" ? "Assamese" : lang === "ur" ? "Urdu" : "English",
+        context: kind,
+      })
+      setAiMsg(res.message)
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const waLink = (msg?: string) =>
+    `https://wa.me/91${lead?.phone.replace(/\D/g, "").slice(-10)}${msg ? `?text=${encodeURIComponent(msg)}` : ""}`
+
+  return (
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="flex h-[94dvh] flex-col rounded-t-2xl p-0 sm:max-w-lg sm:rounded-2xl">
+          {loading || !lead ? (
+            <>
+              <SheetTitle className="sr-only">{t("leads.leadDetails")}</SheetTitle>
+              <div className="flex flex-1 items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            </>
+          ) : (
+            <>
+              <SheetHeader className="border-b px-5 py-4">
+                <SheetTitle className="flex items-center gap-3">
+                  <Avatar name={lead.name} color={lead.assignedTo?.avatarColor} className="h-10 w-10 text-xs" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-bold">{lead.name}</p>
+                    <p className="truncate text-xs font-normal text-muted-foreground">
+                      {lead.company || lead.city || ""}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="icon" variant="ghost" onClick={() => setEditOpen(true)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="text-destructive" onClick={deleteLead}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </SheetTitle>
+              </SheetHeader>
+
+              <div className="nova-scroll flex-1 space-y-5 overflow-y-auto px-5 py-4">
+                {/* Status chips + priority */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={lead.status} />
+                  <PriorityBadge priority={lead.priority} />
+                  {lead.value > 0 && (
+                    <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                      <IndianRupee className="h-3 w-3" />
+                      {lead.value.toLocaleString("en-IN")}
+                    </span>
+                  )}
+                  {lead.aiScore > 0 && (
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      lead.aiScore >= 70 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                      : lead.aiScore >= 40 ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                      : "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                    }`}>
+                      {t("leads.aiScore")}: {lead.aiScore}
+                    </span>
+                  )}
+                </div>
+
+                {/* Quick actions */}
+                <div className="grid grid-cols-4 gap-2">
+                  <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={() => (window.location.href = `tel:${lead.phone}`)}>
+                    <Phone className="h-4 w-4 text-primary" />
+                    <span className="text-[10px]">{t("common.call")}</span>
+                  </Button>
+                  <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={() => window.open(waLink(), "_blank")}>
+                    <MessageCircle className="h-4 w-4 text-emerald-600" />
+                    <span className="text-[10px]">{t("common.whatsapp")}</span>
+                  </Button>
+                  <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={() => addActivity("call")}>
+                    <ClipboardList className="h-4 w-4 text-amber-600" />
+                    <span className="text-[10px]">{t("leads.logCall")}</span>
+                  </Button>
+                  <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={() => addActivity("visit")}>
+                    <MapPin className="h-4 w-4 text-rose-600" />
+                    <span className="text-[10px]">{t("leads.logVisit")}</span>
+                  </Button>
+                </div>
+
+                {/* Info */}
+                <div className="space-y-2 rounded-xl border bg-card p-4 text-sm">
+                  <div className="flex items-center gap-2.5">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">{lead.phone}</span>
+                  </div>
+                  {lead.email && (
+                    <div className="flex items-center gap-2.5 text-muted-foreground">
+                      <Mail className="h-4 w-4" /> {lead.email}
+                    </div>
+                  )}
+                  {lead.company && (
+                    <div className="flex items-center gap-2.5 text-muted-foreground">
+                      <Building2 className="h-4 w-4" /> {lead.company}
+                    </div>
+                  )}
+                  {lead.city && (
+                    <div className="flex items-center gap-2.5 text-muted-foreground">
+                      <MapPin className="h-4 w-4" /> {lead.city}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2.5 text-muted-foreground">
+                    <User className="h-4 w-4" /> {lead.assignedTo?.name || t("leads.unassigned")}
+                  </div>
+                  {lead.nextFollowUpAt && (
+                    <div className="flex items-center gap-2.5 text-muted-foreground">
+                      <Calendar className="h-4 w-4" /> {t("leads.nextFollowUp")}: {dateTimeLabel(lead.nextFollowUpAt)}
+                    </div>
+                  )}
+                  {lead.requirement && (
+                    <p className="pt-1 text-muted-foreground">{lead.requirement}</p>
+                  )}
+                  {lead.tags && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {lead.tags.split(",").filter(Boolean).map((tg) => (
+                        <span key={tg} className="rounded-full bg-muted px-2 py-0.5 text-[10px]">{tg.trim()}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Status change */}
+                <div>
+                  <Label className="mb-1.5 block text-xs">{t("leads.status")}</Label>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {LEAD_STATUSES.filter((s) => s !== "won" && s !== "lost").map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => changeStatus(s)}
+                        className={`flex flex-col items-center gap-1 rounded-lg border p-2 text-[9px] leading-tight transition-all active:scale-95 ${
+                          lead.status === s ? "border-primary bg-primary/10 font-semibold" : "hover:border-primary/40"
+                        }`}
+                      >
+                        <span className={`h-2 w-2 rounded-full ${STATUS_DOT[s]}`} />
+                        {t(`status.${s}`)}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => changeStatus("won")}>
+                      <CheckCircle2 className="me-1 h-4 w-4" /> {t("leads.markWon")}
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-rose-600" onClick={() => changeStatus("lost")}>
+                      <XCircle className="me-1 h-4 w-4" /> {t("leads.markLost")}
+                    </Button>
+                  </div>
+                  {lead.status === "won" && !lead.convertedAt && (
+                    <Button size="sm" variant="outline" className="mt-2 w-full border-primary text-primary" onClick={convertToCustomer}>
+                      {t("leads.convertToCustomer")}
+                    </Button>
+                  )}
+                </div>
+
+                {/* Quote action */}
+                <Button variant="outline" className="w-full" onClick={() => onCreateQuote(lead)}>
+                  <FileText className="me-2 h-4 w-4" /> {t("leads.createQuote")}
+                </Button>
+
+                {/* AI follow-up */}
+                <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
+                  <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+                    <Sparkles className="h-4 w-4 text-primary" /> {t("leads.generateFollowUp")}
+                  </p>
+                  {aiMsg ? (
+                    <div className="space-y-2">
+                      <p className="whitespace-pre-wrap rounded-lg bg-card p-3 text-sm">{aiMsg}</p>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="flex-1" onClick={() => { navigator.clipboard.writeText(aiMsg); toast({ title: t("ai.copied") }) }}>
+                          <Copy className="me-1 h-3.5 w-3.5" /> {t("ai.copyMessage")}
+                        </Button>
+                        <Button size="sm" className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => window.open(waLink(aiMsg), "_blank")}>
+                          <MessageCircle className="me-1 h-3.5 w-3.5" /> {t("ai.sendWhatsapp")}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button size="sm" onClick={() => generateAiMessage("follow_up")} disabled={aiLoading}>
+                      {aiLoading ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <Sparkles className="me-2 h-4 w-4" />}
+                      {aiLoading ? t("ai.generating") : t("leads.generateFollowUp")}
+                    </Button>
+                  )}
+                </div>
+
+                {/* Schedule follow-up */}
+                <div className="space-y-2 rounded-xl border p-4">
+                  <p className="text-sm font-semibold">{t("leads.scheduleFollowUp")}</p>
+                  <Input placeholder={t("tasks.taskTitle")} value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} />
+                  <Input type="datetime-local" value={followUpAt} onChange={(e) => setFollowUpAt(e.target.value)} />
+                  <Button size="sm" className="w-full" onClick={scheduleFollowUp}>{t("common.save")}</Button>
+                </div>
+
+                {/* Tasks for this lead */}
+                {tasks.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-sm font-semibold">{t("tasks.title")}</p>
+                    <div className="space-y-2">
+                      {tasks.map((tk) => (
+                        <div key={tk.id} className="flex items-center gap-2 rounded-lg border p-2.5 text-sm">
+                          <button
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-primary/50 text-transparent hover:text-primary"
+                            onClick={() => markTaskDone(tk.id)}
+                            aria-label={t("tasks.markDone")}
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </button>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-medium">{tk.title}</p>
+                            <p className="text-[10px] text-muted-foreground">{dateTimeLabel(tk.dueAt)}</p>
+                          </div>
+                          <button className="text-muted-foreground hover:text-destructive" onClick={() => deleteTask(tk.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quotes for this lead */}
+                {quotes.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-sm font-semibold">{t("quotes.title")}</p>
+                    <div className="space-y-2">
+                      {quotes.map((q) => (
+                        <div key={q.id} className="flex items-center justify-between rounded-lg border p-2.5 text-sm">
+                          <div>
+                            <p className="text-xs font-semibold">{q.quoteNo}</p>
+                            <p className="text-[10px] text-muted-foreground">{dateLabel(q.createdAt)}</p>
+                          </div>
+                          <span className="text-xs font-bold text-primary">₹{q.total.toLocaleString("en-IN")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Add note */}
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold">{t("leads.addNote")}</p>
+                  <Textarea rows={2} placeholder={t("activity.addNotePlaceholder")} value={note} onChange={(e) => setNote(e.target.value)} />
+                  <div className="flex gap-2">
+                    <Select value={outcome} onValueChange={setOutcome}>
+                      <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="connected">{t("activity.connected")}</SelectItem>
+                        <SelectItem value="no_answer">{t("activity.no_answer")}</SelectItem>
+                        <SelectItem value="busy">{t("activity.busy")}</SelectItem>
+                        <SelectItem value="interested">{t("activity.interested")}</SelectItem>
+                        <SelectItem value="not_interested">{t("activity.not_interested")}</SelectItem>
+                        <SelectItem value="callback">{t("activity.callback")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" className="flex-1" onClick={() => addActivity("note")}>{t("common.save")}</Button>
+                  </div>
+                </div>
+
+                {/* Timeline */}
+                <div>
+                  <p className="mb-3 text-sm font-semibold">{t("leads.timeline")}</p>
+                  {(lead.activities?.length ?? 0) === 0 ? (
+                    <p className="text-xs text-muted-foreground">{t("activity.noActivities")}</p>
+                  ) : (
+                    <div className="space-y-0">
+                      {lead.activities?.map((a, i) => (
+                        <div key={a.id} className="flex gap-3">
+                          <div className="flex flex-col items-center">
+                            <span className={`flex h-7 w-7 items-center justify-center rounded-full ${
+                              a.type === "call" ? "bg-amber-100 text-amber-600 dark:bg-amber-950"
+                              : a.type === "whatsapp" ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950"
+                              : a.type === "status_change" ? "bg-sky-100 text-sky-600 dark:bg-sky-950"
+                              : "bg-muted text-muted-foreground"
+                            }`}>
+                              {ACTIVITY_ICONS[a.type] || <StickyNote className="h-3.5 w-3.5" />}
+                            </span>
+                            {i < (lead.activities?.length || 0) - 1 && <span className="my-1 w-px flex-1 bg-border" />}
+                          </div>
+                          <div className="min-w-0 flex-1 pb-4">
+                            <p className="text-xs font-medium">
+                              {a.type === "status_change" ? `${t("activity.status_change")}: ${t(`status.${a.title}`)}` : a.type === "created" ? t("activity.created") : t(`activity.${a.type}`)}
+                            </p>
+                            {a.notes && <p className="mt-0.5 text-xs text-muted-foreground">{a.notes}</p>}
+                            {a.outcome && (
+                              <p className="mt-0.5 text-[10px] text-muted-foreground">{t("activity.outcome")}: {t(`activity.${a.outcome}`)}</p>
+                            )}
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">{relTime(a.createdAt, lang)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <LeadForm
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        lead={lead}
+        members={members}
+        onSaved={() => {
+          setEditOpen(false)
+          load()
+          onChanged()
+        }}
+      />
+    </>
+  )
+}

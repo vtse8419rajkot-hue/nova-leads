@@ -1,0 +1,51 @@
+{
+  "name": "Nova Leads - Lead Management CRM",
+  "short_name": "Nova Leads",
+  "description": "Turn enquiries into customers. Capture leads, manage follow-ups, send quotations and grow your business - works offline, in 13 Indian languages.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0c1210",
+  "theme_color": "#10b981",
+  "lang": "en",
+  "dir": "auto",
+  "categories": ["business", "productivity", "finance"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add Lead",
+      "short_name": "Add Lead",
+      "description": "Quickly add a new lead",
+      "url": "/?action=add-lead",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Follow-ups Today",
+      "short_name": "Today",
+      "description": "See today's follow-ups",
+      "url": "/?tab=tasks",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    }
+  ]
+}

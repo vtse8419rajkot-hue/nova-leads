@@ -133,6 +133,16 @@ export interface MessageTemplate {
   updatedAt: string
 }
 
+// Personal (per-lead) WhatsApp message - unlimited per lead
+export interface LeadMessage {
+  id: string
+  leadId: string
+  name: string
+  content: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface DashboardStats {
   totalLeads: number
   newLeads: number

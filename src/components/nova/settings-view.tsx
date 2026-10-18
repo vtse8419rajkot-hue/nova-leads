@@ -29,7 +29,6 @@ export function SettingsView() {
   const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(null)
   const [isInstalled, setIsInstalled] = useState(false)
   const [clearOpen, setClearOpen] = useState(false)
-  const [seedLoading, setSeedLoading] = useState(false)
   const [clearLoading, setClearLoading] = useState(false)
   const [businessName, setBusinessName] = useState("")
 
@@ -65,19 +64,6 @@ export function SettingsView() {
       toast({ title: t("settings.installed") })
     }
     setInstallEvt(null)
-  }
-
-  async function seedDemo() {
-    setSeedLoading(true)
-    try {
-      await api.post("/api/seed")
-      toast({ title: t("common.saved") })
-      window.location.reload()
-    } catch {
-      toast({ title: t("common.error"), variant: "destructive" })
-    } finally {
-      setSeedLoading(false)
-    }
   }
 
   async function clearAll() {
@@ -209,14 +195,6 @@ export function SettingsView() {
                 <Download className="me-2 h-4 w-4" /> {t("settings.exportContacts")}
               </Button>
             </a>
-          </div>
-          <div className="rounded-xl border bg-card p-3.5">
-            <p className="text-sm font-medium">{t("settings.seedDemoData")}</p>
-            <p className="mb-2.5 text-xs text-muted-foreground">{t("settings.seedDemoDataDesc")}</p>
-            <Button size="sm" variant="outline" onClick={seedDemo} disabled={seedLoading}>
-              {seedLoading ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <Database className="me-2 h-4 w-4" />}
-              {t("settings.seedDemoData")}
-            </Button>
           </div>
           <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3.5">
             <p className="text-sm font-medium text-destructive">{t("settings.clearData")}</p>

@@ -500,5 +500,22 @@
     "title": "Reminders",
     "dueNow": "Due Now",
     "upcoming": "Upcoming"
+  },
+  "personal": {
+    "title": "Personal messages",
+    "desc": "Only for this lead - save personal messages and send on WhatsApp in one tap",
+    "add": "Add personal",
+    "addTitle": "Add personal message",
+    "editTitle": "Edit personal message",
+    "name": "Message name",
+    "namePh": "e.g. Diwali offer",
+    "contentPh": "Write a personal message for this lead...",
+    "empty": "No personal messages yet - add one for this lead",
+    "emptyName": "Please enter a message name",
+    "emptyContent": "Please write the message",
+    "confirmDelete": "Delete?",
+    "saved": "Personal message saved",
+    "deleted": "Personal message deleted",
+    "sentActivity": "Sent personal message on WhatsApp"
   }
 }

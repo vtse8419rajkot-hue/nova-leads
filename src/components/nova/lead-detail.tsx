@@ -6,6 +6,9 @@ import { toast } from "@/hooks/use-toast"
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet"
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -17,10 +20,10 @@ import {
   Trash2, Pencil, CheckCircle2, XCircle, FileText, Plus, Sparkles, Copy, Loader2, ClipboardList,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { fillTemplate, templateVarsFromLead } from "@/lib/message-templates"
+import { fillTemplate, templateVarsFromLead, TEMPLATE_VARS } from "@/lib/message-templates"
 import {
   api, LEAD_STATUSES, relTime, dateLabel, dateTimeLabel,
-  type Lead, type TeamMember, type Task, type Quote, type MessageTemplate,
+  type Lead, type TeamMember, type Task, type Quote, type MessageTemplate, type LeadMessage,
 } from "./api"
 import { StatusBadge, PriorityBadge, Avatar, STATUS_DOT, EmptyState } from "./ui-bits"
 import { LeadForm } from "./lead-form"
@@ -68,6 +71,15 @@ export function LeadDetail({
   const [selectedTid, setSelectedTid] = useState<string | null>(null)
   const [msgText, setMsgText] = useState("")
   const [businessName, setBusinessName] = useState("")
+  // Personal (per-lead) custom messages state
+  const [leadMsgs, setLeadMsgs] = useState<LeadMessage[]>([])
+  const [selectedPid, setSelectedPid] = useState<string | null>(null)
+  const [pmOpen, setPmOpen] = useState(false)
+  const [pmEditing, setPmEditing] = useState<LeadMessage | null>(null)
+  const [pmName, setPmName] = useState("")
+  const [pmContent, setPmContent] = useState("")
+  const [pmSaving, setPmSaving] = useState(false)
+  const [pmConfirmDelete, setPmConfirmDelete] = useState(false)
 
   const load = useCallback(async () => {
     if (!leadId) return
@@ -94,10 +106,15 @@ export function LeadDetail({
       api.get<Record<string, string>>("/api/settings")
         .then((s) => setBusinessName(s.businessName || ""))
         .catch(() => {})
+      api.get<LeadMessage[]>(`/api/leads/${leadId}/messages`)
+        .then((ms) => setLeadMsgs(ms))
+        .catch(() => setLeadMsgs([]))
     }
     if (!open) {
       setMsgText("")
       setSelectedTid(null)
+      setSelectedPid(null)
+      setPmOpen(false)
       setNote("")
     }
   }, [open, leadId, load])
@@ -209,7 +226,80 @@ export function LeadDetail({
 
   function pickTemplate(tp: MessageTemplate) {
     setSelectedTid(tp.id)
+    setSelectedPid(null)
     if (lead) setMsgText(fillTemplate(tp.content, templateVarsFromLead(lead, businessName)))
+  }
+
+  function pickPersonal(pm: LeadMessage) {
+    setSelectedPid(pm.id)
+    setSelectedTid(null)
+    if (lead) setMsgText(fillTemplate(pm.content, templateVarsFromLead(lead, businessName)))
+  }
+
+  function openPmNew() {
+    setPmEditing(null)
+    setPmName("")
+    setPmContent("")
+    setPmConfirmDelete(false)
+    setPmOpen(true)
+  }
+
+  function openPmEdit(pm: LeadMessage) {
+    setPmEditing(pm)
+    setPmName(pm.name)
+    setPmContent(pm.content)
+    setPmConfirmDelete(false)
+    setPmOpen(true)
+  }
+
+  async function refreshLeadMsgs() {
+    try {
+      const list = await api.get<LeadMessage[]>(`/api/leads/${leadId}/messages`)
+      setLeadMsgs(list)
+    } catch {
+      /* keep current list */
+    }
+  }
+
+  async function savePm() {
+    if (!pmName.trim()) {
+      toast({ title: t("personal.emptyName"), variant: "destructive" })
+      return
+    }
+    if (!pmContent.trim()) {
+      toast({ title: t("personal.emptyContent"), variant: "destructive" })
+      return
+    }
+    setPmSaving(true)
+    try {
+      const saved = pmEditing
+        ? await api.patch<LeadMessage>(`/api/lead-messages/${pmEditing.id}`, { name: pmName, content: pmContent })
+        : await api.post<LeadMessage>(`/api/leads/${leadId}/messages`, { name: pmName, content: pmContent })
+      await refreshLeadMsgs()
+      setPmOpen(false)
+      // Select the saved message and fill the composer with it
+      setSelectedPid(saved.id)
+      setSelectedTid(null)
+      if (lead) setMsgText(fillTemplate(saved.content, templateVarsFromLead(lead, businessName)))
+      toast({ title: t("personal.saved") })
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
+    } finally {
+      setPmSaving(false)
+    }
+  }
+
+  async function deletePm() {
+    if (!pmEditing) return
+    try {
+      await api.del(`/api/lead-messages/${pmEditing.id}`)
+      await refreshLeadMsgs()
+      if (selectedPid === pmEditing.id) setSelectedPid(null)
+      setPmOpen(false)
+      toast({ title: t("personal.deleted") })
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
+    }
   }
 
   async function generateAiMessage(kind: string) {
@@ -223,6 +313,7 @@ export function LeadDetail({
         context: kind,
       })
       setSelectedTid(null)
+      setSelectedPid(null)
       setMsgText(res.message)
     } catch {
       toast({ title: t("common.error"), variant: "destructive" })
@@ -238,9 +329,14 @@ export function LeadDetail({
     }
     window.open(waLink(msgText), "_blank")
     const tp = templates.find((x) => x.id === selectedTid)
+    const pm = leadMsgs.find((x) => x.id === selectedPid)
     addActivity("whatsapp", {
       title: "WhatsApp",
-      notes: tp ? `${t("templates.sentActivity")}: ${tp.name}` : msgText.slice(0, 120),
+      notes: pm
+        ? `${t("personal.sentActivity")}: ${pm.name}`
+        : tp
+          ? `${t("templates.sentActivity")}: ${tp.name}`
+          : msgText.slice(0, 120),
     })
   }
 
@@ -435,6 +531,54 @@ export function LeadDetail({
                       </div>
                     </>
                   )}
+                  {/* Personal (per-lead) custom messages */}
+                  <p className="mb-1.5 mt-1 text-[11px] text-muted-foreground">{t("personal.title")}</p>
+                  <div className="nova-scroll -mx-1 mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1">
+                    {leadMsgs.map((pm) => (
+                      <button
+                        key={pm.id}
+                        onClick={() => pickPersonal(pm)}
+                        className={cn(
+                          "flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-95",
+                          selectedPid === pm.id
+                            ? "border-emerald-600 bg-emerald-600 text-white"
+                            : "border-border bg-card hover:border-emerald-500/50"
+                        )}
+                      >
+                        <User className="h-3 w-3" />
+                        {pm.name}
+                        {selectedPid === pm.id && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            aria-label={t("common.edit")}
+                            className="ms-0.5 rounded-full bg-white/25 p-0.5 hover:bg-white/40"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openPmEdit(pm)
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.stopPropagation()
+                                openPmEdit(pm)
+                              }
+                            }}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                    <button
+                      onClick={openPmNew}
+                      className="flex shrink-0 items-center gap-1 rounded-full border border-dashed border-emerald-600/60 bg-card px-3 py-1.5 text-xs font-medium text-emerald-700 transition-all active:scale-95 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950"
+                    >
+                      <Plus className="h-3 w-3" /> {t("personal.add")}
+                    </button>
+                  </div>
+                  {leadMsgs.length === 0 && (
+                    <p className="mb-2 text-[11px] text-muted-foreground">{t("personal.empty")}</p>
+                  )}
                   <Textarea
                     rows={6}
                     value={msgText}
@@ -576,6 +720,76 @@ export function LeadDetail({
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Personal message add/edit dialog */}
+      <Dialog open={pmOpen} onOpenChange={setPmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{pmEditing ? t("personal.editTitle") : t("personal.addTitle")}</DialogTitle>
+            <DialogDescription>{t("personal.desc")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="mb-1.5 block text-xs">{t("personal.name")}</Label>
+              <Input
+                value={pmName}
+                onChange={(e) => setPmName(e.target.value)}
+                placeholder={t("personal.namePh")}
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="mb-1.5 block text-xs">{t("templates.content")}</Label>
+              <div className="nova-scroll mb-2 flex gap-1 overflow-x-auto pb-1">
+                {TEMPLATE_VARS.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setPmContent((c) => (c ? `${c}{${v}}` : `{${v}}`))}
+                    className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-primary hover:text-primary-foreground"
+                  >
+                    {`{${v}}`}
+                  </button>
+                ))}
+              </div>
+              <Textarea
+                rows={5}
+                value={pmContent}
+                onChange={(e) => setPmContent(e.target.value)}
+                placeholder={t("personal.contentPh")}
+              />
+              {lead && pmContent.trim() && (
+                <div className="mt-2 whitespace-pre-wrap rounded-lg border bg-muted/40 p-2.5 text-xs">
+                  <span className="mb-1 block text-[10px] font-semibold text-muted-foreground">{t("templates.preview")}</span>
+                  {fillTemplate(pmContent, templateVarsFromLead(lead, businessName))}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {pmEditing && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => (pmConfirmDelete ? deletePm() : setPmConfirmDelete(true))}
+                >
+                  <Trash2 className="me-1 h-4 w-4" />
+                  {pmConfirmDelete ? t("personal.confirmDelete") : t("common.delete")}
+                </Button>
+              )}
+              <div className="flex flex-1 justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPmOpen(false)}>
+                  {t("common.cancel")}
+                </Button>
+                <Button size="sm" onClick={savePm} disabled={pmSaving}>
+                  {pmSaving && <Loader2 className="me-1 h-4 w-4 animate-spin" />}
+                  {t("common.save")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <LeadForm
         open={editOpen}

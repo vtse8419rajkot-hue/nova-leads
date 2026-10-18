@@ -12,24 +12,26 @@ import { PrismaClient } from '@prisma/client'
  * - Locally nothing changes: .env DATABASE_URL (absolute file path) is used.
  */
 function bootstrapSqlite() {
-  if (!process.env.DATABASE_URL) {
+  if (process.env.VERCEL) {
+    // On Vercel ALWAYS use the /tmp copy - even if a stray bundled .env set
+    // DATABASE_URL to a local dev path (that file does not exist here).
     const target = '/tmp/nova-leads.db'
-    if (process.env.VERCEL) {
-      const src = path.join(process.cwd(), 'db', 'custom.db')
-      if (!fs.existsSync(target) && fs.existsSync(src)) {
-        const partial = `${target}.copying`
-        try {
-          fs.copyFileSync(src, partial)
-          fs.renameSync(partial, target) // atomic-ish: never expose a half copy
-        } catch {
-          /* fall through - client will create a fresh empty db */
-        }
+    const src = path.join(process.cwd(), 'db', 'custom.db')
+    if (!fs.existsSync(target) && fs.existsSync(src)) {
+      const partial = `${target}.copying`
+      try {
+        fs.copyFileSync(src, partial)
+        fs.renameSync(partial, target) // atomic-ish: never expose a half copy
+      } catch {
+        /* fall through - client will create a fresh empty db */
       }
-      process.env.DATABASE_URL = `file:${target}`
-    } else {
-      // Local default when .env is missing (absolute via cwd - safe resolution)
-      process.env.DATABASE_URL = `file:${path.join(process.cwd(), 'db', 'custom.db')}`
     }
+    process.env.DATABASE_URL = `file:${target}`
+    return
+  }
+  if (!process.env.DATABASE_URL) {
+    // Local default when .env is missing (absolute via cwd - safe resolution)
+    process.env.DATABASE_URL = `file:${path.join(process.cwd(), 'db', 'custom.db')}`
   }
 }
 

@@ -1,0 +1,7 @@
+.env
+.env.*
+dev.log
+server.log
+worklog.md
+tool-results/
+agent-ctx/

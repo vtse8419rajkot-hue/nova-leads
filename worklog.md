@@ -100,3 +100,68 @@ Stage Summary:
 - App complete: same features as HelloLeads + extras (AI score, AI messages, kanban DnD, dark mode, offline PWA, CSV export)
 - 13 languages all real native scripts, key-validated
 - Lint clean, all APIs 200, browser-verified end-to-end
+
+---
+Task ID: A-2
+Agent: general-purpose (translations 1/2)
+Task: Add alarm i18n section to hi/mr/bn/ta/te/kn
+
+Work Log:
+- Read worklog.md, then read new "alarm" section (57 keys) from en.json and the pure-Gujarati reference in gu.json
+- Studied each target file's existing style: app.name (नोवा लीड्स / নোভা লিডস / நோவா லீட்ஸ் / నోవా లీడ్స్ / ನೋವಾ ಲೀಡ್ಸ್), WhatsApp transliterations (व्हाट्सएप / व्हॉट्सअॅप / হোয়াটসঅ্যাপ / வாட்ஸ்அப் / వాట్సాప్ / ವಾಟ್ಸಾಪ್), follow-up terms (फॉलो-अप / ফলো-আপ / பின்தொடர்தல் (ta file's own native term) / ఫాలో-అప్ / ಫಾಲೋ-ಅಪ್), call/details/status vocabulary, nukta usage (hi फ़ोन), screen words (स्क्रीन/স্ক্রিন/ஸ்க்ரீன்/స్క్రీన్/ಸ್ಕ್ರೀನ್)
+- Authored native alarm translations for all 6 languages: on/off = चालू/बंद (hi/mr/bn) vs ஆன்/ஆஃப், ఆన్/ఆఫ్, ಆನ್/ಆಫ್; leadTime with native digits (५/१०/१५/३०, ৫/১০/১৫/৩০, ௫/௧௦/௧௫/௩௦, ౫/౧౦/౧౫/౩౦, ೫/೧೦/೧೫/೩೦); friendly soundNames (dhol = ढोल की थाप / ढोलाची ताल / ঢোলের তাল / பறை இசை / డోలు తాళం / ಡೋಲು ತಾಳ; temple = मंदिर की घंटी / মন্দিরের ঘণ্টা / கோவில் மணி / గుడి గంట / ದೇವಸ್ಥಾನದ ಗಂಟೆ); snooze = थोड़ी देर बाद / একটু পরে / பின்னர் நினைவூட்டு etc.
+- Wrote alarm-a2-insert.ts: text-splice insertion of the serialized alarm block exactly before "languageNames" line (after "ai" section close) in each file - zero bytes of existing content touched; pre-edit copies saved to .bak-a2/
+- Wrote val-alarm-a2.ts: flattens en.alarm (asserts 57 keys), asserts per file: alarm key set EXACTLY equals en (no missing/extra), no empty/non-string values, {m} and {name} placeholders present exactly once, every non-alarm section deep-equal to .bak-a2 backup, section order ai -> alarm -> languageNames, total key count = old 365 + 57 = 422
+- Fixed one validator bug (top-level "alarm" presence check) and re-ran: PASS all 6
+- Copied the 6 edited files over public/i18n/ (hi/mr/bn/ta/te/kn.json) and verified public copies parse identical to src copies
+- Extra scan: all Latin tokens inside the 6 alarm sections are only the required {m}/{name} placeholders - no English leakage
+
+Stage Summary:
+- hi.json, mr.json, bn.json, ta.json, te.json, kn.json each now have a native "alarm" section (57 keys) positioned exactly between "ai" and "languageNames"; all pre-existing content 100% unchanged (deep-equal verified against backups)
+- Validation output: en.alarm flattened keys: 57; hi/mr/bn/ta/te/kn each: PASS (alarm=57 keys, total 365 -> 422, order ai>alarm>languageNames, rest unchanged) -> ALL FILES PASS
+- public/i18n/ synced for the 6 files; scripts kept at project root: alarm-a2-insert.ts (idempotent), val-alarm-a2.ts, backups in .bak-a2/
+
+
+---
+Task ID: A-3
+Agent: general-purpose (translations 2/2)
+Task: Add alarm i18n section to ml/pa/or/as/ur
+
+Work Log:
+- Read worklog.md + en.json alarm section (57 leaf keys, lines 382-444) + gu.json as the pure-Gujarati style reference
+- Read all 5 target files (ml/pa/or/as/ur) end-to-end to match existing tone, terminology and app.name/WhatsApp transliterations (നോവ ലീഡ്സ്/ਨੋਵਾ ਲੀਡਜ਼/ନୋଭା ଲିଡ୍ସ/ন'ভা লিডছ/نووا لیڈز; വാട്ട്സ്ആപ്പ്/ਵਟਸਐਪ/ହ୍ୱାଟସଆପ୍/ৱাটছএপ/واٹسایپ)
+- Inserted native "alarm" section in each file between "ai" end and "languageNames" start; no other lines touched
+- ml: അലാറം/ഫോളോ-അപ്പ്, dhol=പറ താളം, temple=ക്ഷേത്ര മണി, 5/10/15/30 മിനിറ്റ് മുമ്പേ
+- pa: ਅਲਾਰਮ/ਫਾਲੋ-ਅੱਪ, Gurmukhi numerals (੫/੧੦/੧੫/੩੦ ਮਿੰਟ ਪਹਿਲਾਂ), dhol=ਢੋਲ ਦਾ ਠੇਕਾ, temple=ਮੰਦਿਰ ਦੀ ਘੰਟੀ
+- or: ଆଲାରମ୍/ଫଲୋ-ଅପ୍, dhol=ଢୋଲ ତାଳ, temple=ମନ୍ଦିର ଘଣ୍ଟ, details=ବିବରଣୀ (matches file)
+- as: এলাৰ্ম/ফলো-আপ (matches file's ফলো-আপ), dhol=ঢোলৰ তাল, temple=মন্দিৰৰ ঘণ্টা, details=বিৱৰণ
+- ur: الارم/فالو اپ, Western digits per file style (5 منٹ پہلے), temple=مندر کی گھنٹی, details=تفصیلات
+- {m} in alarm.snoozeDoneFor and {name} in alarm.notificationTitle/notificationBody kept EXACT as-is in all 5
+- Wrote validator /home/z/my-project/val-alarm-a3.ts (flattens keys recursively, compares alarm key set vs en.json, checks no missing/extra/empty, total = 365+57, placeholder checks) and ran: bun val-alarm-a3.ts
+- Copied ml/pa/or/as/ur.json to public/i18n/ (overwrite) and verified src copies are byte-identical to public copies and section order (ai → alarm → languageNames)
+
+Stage Summary:
+- 5 files updated (src/i18n/locales + public/i18n): ml.json, pa.json, or.json, as.json, ur.json now have the alarm section, exactly 57 keys matching en.json's key set, in the exact en.json position
+- Validation: PASS all 5 - total 422 keys each (365 old + 57 alarm), 0 missing, 0 extra, 0 empty, placeholders intact
+- en.json reference: alarm leaf keys = 57, total = 422; all real native script, no English mixing (only standard transliterations like ਅਲਾਰਮ/এলাৰ্ম/الارم)
+---
+Task ID: A-1 to A-9 (main build)
+Agent: main
+Task: Follow-up Alarm & Notification system (user request: permission ask on open, alarm at follow-up time, full-screen alarm with complete lead details, multiple alarm sounds)
+
+Work Log:
+- i18n: added 57-key "alarm" section to en.json + gu.json (hand-written pure Gujarati); 2 parallel subagents (A-2, A-3) translated it into hi/mr/bn/ta/te/kn + ml/pa/or/as/ur — all validated 422 keys, copied to public/i18n/
+- src/lib/alarm-sounds.ts: 8 synthesized alarm tones via Web Audio API (beep, radar, chime, siren, marimba, dhol, temple bell, birds) — zero audio files, loop + preview + stop, vibration helpers
+- API: GET /api/alarms/due (due leads + pending tasks with full details), POST /api/alarms/snooze (updates nextFollowUpAt/dueAt + timeline activity), POST /api/alarms/complete (clears follow-up / marks task done + activity)
+- src/hooks/use-alarm-engine.tsx: AlarmProvider — Notification permission state, first-open ask (re-asks after 12h "not now"), 30s polling + focus/visibility checks, localStorage dedup (nova-alarm-fired), sound+vibration loop on fire, background SW notification when tab hidden, snooze/done/test actions, settings persistence
+- alarm-overlay.tsx: full-screen alarm (z-100, dark emerald gradient, pulsing bell) showing ALL lead details: phone(tap-to-call), WhatsApp button, status/priority/AI-score chips, email, company, city, address, deal value, source, requirement, notes, tags, assigned-to, follow-up time + actions: Snooze(5/10/30/60), Done, Open Lead (dispatches nova:open-lead event)
+- alarm-permission-dialog.tsx: onboarding dialog (enable alarms / not now / blocked-state instructions)
+- alarm-settings-card.tsx in Settings: permission chips, enable button, 8-sound picker with per-sound preview, volume slider, vibration toggle, sound toggle, ring-before-lead-time select (0/5/10/15/30), Test Alarm
+- app-shell: wrapped in AlarmProvider, nova:open-lead listener, ?lead= URL param; sw.js: notificationclick handler + cache v2
+- Fixed lint (ref-in-render -> effect updates, derived askOpen state, deferred initial poll via setTimeout); fixed DialogTitle a11y (sr-only) and tasks.{type} key paths
+
+Stage Summary:
+- Browser-verified end-to-end: real due lead/task alarms fire on open with full-screen details; Snooze moved Deepak Joshi +5min server-side with "⏰ 5m snooze" activity; Done cleared Rajesh Patel nextFollowUpAt; queue shows next due item after each action; dedup prevents re-ring; Open Lead opens lead detail sheet; Test Alarm shows sample; Temple Bell selection persisted to localStorage
+- Gujarati alarm UI fully native (ફોલો-અપનો સમય થયો! / વિગત / થોડી વાર પછી / થઈ ગયું); all 13 languages serve 422 keys
+- Mobile (iPhone 14) alarm screen renders like a phone alarm with big touch targets
+- Lint clean, no console errors, /api/alarms/due 200

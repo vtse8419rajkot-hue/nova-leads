@@ -1,5 +1,5 @@
 // Nova Leads Service Worker - offline-first PWA
-const CACHE_NAME = "nova-leads-v1"
+const CACHE_NAME = "nova-leads-v2"
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",
@@ -23,6 +23,23 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME && k !== API_CACHE).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
+  )
+})
+
+// Alarm reminder notification tap -> focus app and open the lead
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close()
+  const data = (event.notification && event.notification.data) || {}
+  event.waitUntil(
+    (async () => {
+      const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
+      for (const client of clientList) {
+        client.postMessage({ type: "ALARM_NOTIFICATION_CLICK", leadId: data.leadId || null })
+        return client.focus()
+      }
+      const url = data.leadId ? "/?tab=leads&lead=" + encodeURIComponent(data.leadId) : "/"
+      return self.clients.openWindow(url)
+    })()
   )
 })
 

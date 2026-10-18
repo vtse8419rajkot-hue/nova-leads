@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
+import { AlarmSettingsCard } from "./alarm-settings-card"
 
 type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
 
@@ -145,6 +146,9 @@ export function SettingsView() {
           ))}
         </div>
       </section>
+
+      {/* Alarms & Notifications */}
+      <AlarmSettingsCard />
 
       {/* Business name */}
       <section>

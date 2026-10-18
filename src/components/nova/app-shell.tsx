@@ -15,6 +15,9 @@ import { ReportsView } from "./reports-view"
 import { SettingsView } from "./settings-view"
 import { LeadForm } from "./lead-form"
 import { LeadDetail } from "./lead-detail"
+import { AlarmOverlay } from "./alarm-overlay"
+import { AlarmPermissionDialog } from "./alarm-permission-dialog"
+import { AlarmProvider } from "@/hooks/use-alarm-engine"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import {
@@ -129,9 +132,27 @@ export function NovaApp() {
     }
     return false
   })
-  const [openLeadId, setOpenLeadId] = useState<string | null>(null)
+  const [openLeadId, setOpenLeadId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return new URLSearchParams(window.location.search).get("lead")
+    }
+    return null
+  })
   const [quotePrefill, setQuotePrefill] = useState<Lead | null>(null)
   const [dataChanged, setDataChanged] = useState(0)
+
+  // Alarm notification tap -> open the lead directly
+  useEffect(() => {
+    const onOpenLead = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail
+      if (id) {
+        setTab("leads")
+        setOpenLeadId(id)
+      }
+    }
+    window.addEventListener("nova:open-lead", onOpenLead)
+    return () => window.removeEventListener("nova:open-lead", onOpenLead)
+  }, [])
 
   const loadMembers = useCallback(async () => {
     try {
@@ -190,6 +211,7 @@ export function NovaApp() {
   }
 
   return (
+    <AlarmProvider>
     <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-background">
       <SWRegister />
       <OfflineBanner />
@@ -338,6 +360,11 @@ export function NovaApp() {
         }}
         onCreateQuote={createQuoteFromLead}
       />
+
+      {/* Alarm system: full-screen alarm + first-open permission ask */}
+      <AlarmOverlay />
+      <AlarmPermissionDialog />
     </div>
+    </AlarmProvider>
   )
 }

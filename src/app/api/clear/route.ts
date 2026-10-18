@@ -11,5 +11,6 @@ export async function POST() {
   await db.lead.deleteMany()
   await db.product.deleteMany()
   await db.teamMember.deleteMany()
+  await db.messageTemplate.deleteMany()
   return jsonOk({ ok: true })
 }

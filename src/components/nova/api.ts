@@ -124,6 +124,15 @@ export interface Product {
   active: boolean
 }
 
+export interface MessageTemplate {
+  id: string
+  name: string
+  content: string
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export interface DashboardStats {
   totalLeads: number
   newLeads: number

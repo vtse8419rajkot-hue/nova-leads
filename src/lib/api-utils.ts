@@ -40,5 +40,9 @@ export function toStr(value: unknown, fallback = ""): string {
   return value === undefined || value === null ? fallback : String(value)
 }
 
+export function toBool(value: unknown): boolean {
+  return value === true || value === "true" || value === 1 || value === "1"
+}
+
 // Currency formatting helper for client
 export const INDIAN_LOCALES = ["en-IN", "gu-IN", "hi-IN", "mr-IN", "bn-IN", "ta-IN", "te-IN", "kn-IN", "ml-IN", "pa-IN"]

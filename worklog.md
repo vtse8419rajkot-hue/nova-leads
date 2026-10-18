@@ -165,3 +165,62 @@ Stage Summary:
 - Gujarati alarm UI fully native (ફોલો-અપનો સમય થયો! / વિગત / થોડી વાર પછી / થઈ ગયું); all 13 languages serve 422 keys
 - Mobile (iPhone 14) alarm screen renders like a phone alarm with big touch targets
 - Lint clean, no console errors, /api/alarms/due 200
+---
+Task ID: T-tr-2
+Agent: general-purpose (templates translations 2/2)
+Task: Add templates i18n section to ml/pa/or/as/ur
+
+Work Log:
+- Read worklog.md (A-2/A-3 pattern), en.json "templates" (30 leaf keys, between alarm and languageNames) and gu.json pure-Gujarati reference
+- Harvested each target file's vocabulary first: WhatsApp (വാട്ട്സ്ആപ്പ്/ਵਟਸਐਪ/ହ୍ୱାଟସଆପ୍/ৱাটছএপ/واٹسایپ), AI (എഐ/ਏਆਈ/ଏଆଇ/এআই/اے آئی), lead/customer/message (ലീഡ്/ഉപഭോക്താവ്/സന്ദേശം, ਲੀਡ/ਗਾਹਕ/ਮੈਸੇਜ, ଲିଡ୍/ଗ୍ରାହକ/ମେସେଜ୍, লিড/গ্ৰাহক/মেছেজ, لیڈ/گاہک/میسج), sample (മാതൃക/ਨਮੂਨਾ/ନମୁନା/নমুনা/نمونہ), tap (ടാപ്പ്/ਦਬਾਓ/ଦବାନ୍ତୁ/টিপক/دبائیں), deal value, business name, date conventions
+- Authored native "templates" translations: template = ടെംപ്ലേറ്റ്/ਟੈਂਪਲੇਟ/ଟେମ୍ପଲେଟ୍/টেমপ্লেট/ٹیمپلیٹ; default = സ്ഥിരസ്ഥിതി/ਡਿਫ਼ਾਲਟ/ଡିଫଲ୍ଟ/ডিফল্ট/ڈیفالٹ; preview = പ്രിവ്യൂ/ਝਲਕ/ଝଲକ/প্ৰিভিউ/جھلک; e.g. per file's own hint word (ഉദാ:/ਜਿਵੇਂ:/ଯେପରି:/যেনে:/جیسے:); sampleName = മാതൃക ഉപഭോക്താവ്/ਨਮੂਨਾ ਗਾਹਕ/ନମୁନା ଗ୍ରାହକ/নমুনা গ্ৰাহক/نمونہ گاہک; sentActivity in each file's past-tense activity style
+- {name}/{company}/{city}/{value}/{business}/{date} kept EXACT as-is in varName..varDate; ur follows existing RTL + Western-digit conventions
+- Wrote templates-t2-insert.py (text-splice of serialized block exactly before top-level "languageNames" line; idempotent; zero existing bytes touched; pre-edit copies in .bak-t2/); fixed one newline bug after first run (block was single-line), restored from backups and re-ran clean
+- Wrote validator val-templates-t2.py: flattens en templates (asserts 30), per file asserts templates key set == en exactly, no empty/non-string values, placeholders in varName..varDate exactly as en, every non-templates section deep-equals .bak-t2 backup, order alarm < templates < languageNames, top-level count = 23, top-level order == en, Latin-leak scan (only the 6 placeholders allowed)
+- Ran python3 val-templates-t2.py -> ALL 5 PASS; diff vs backup = 0 removed / 32 added lines each (pure insertion)
+- Copied 5 files to public/i18n/ (overwrite) and verified public copies byte-identical to src copies
+
+Stage Summary:
+- src/i18n/locales/ml.json, pa.json, or.json, as.json, ur.json now have native "templates" section (30 keys) exactly between "alarm" and "languageNames", matching en.json key set/order; all pre-existing content 100% unchanged (deep-equal vs backups)
+- Validation output: en templates leaf keys: 30; ml/pa/or/as/ur each -> PASS; ALL FILES PASS (placeholders intact, order OK, backup identity OK, top-level 23 keys = 422 + 30 = 452 leaf keys each)
+- public/i18n/ synced and verified byte-identical for the 5 files; scripts at project root: templates-t2-insert.py, val-templates-t2.py; backups in .bak-t2/
+
+---
+Task ID: T-tr-1
+Agent: general-purpose (templates translations 1/2)
+Task: Add templates i18n section to hi/mr/bn/ta/te/kn
+
+Work Log:
+- Read worklog.md (A-2/A-3 pattern), en.json "templates" section (30 leaf keys, lines 445-476) and pure-Gujarati reference in gu.json
+- Studied each target file's conventions before writing: app.name (नोवा लीड्स / নোভা লিডস / நோவா லீட்ஸ் / నోవా లీడ్స్ / ನೋವಾ ಲೀಡ್ಸ್), WhatsApp (व्हाट्सएप / व्हॉट्सअॅप / হোয়াটসঅ্যাপ / வாட்ஸ்அப் / వాట్సాప్ / ವಾಟ್ಸಾಪ್), AI (एआई / एआय / এআই / ஏஐ / ఏఐ / ಎಐ), template (टेम्पलेट / টেমপ্লেট / டெம்ப்ளேட் / టెంప్లేట్ / ಟೆಂಪ್ಲೇಟ್), message (मैसेज / मेसेज / বার্তা / செய்தி / సందేశం / ಸಂದೇಶ), customer (ग्राहक / গ্রাহক / வாடிக்கையாளர் / కస్టమర్ / ಗ್ರಾಹಕ), default (डिफ़ॉल्ट / डीफॉल्ट / ডিফল্ট / இயல்புநிலை / డిఫాల్ట్ / ಡೀಫಾಲ್ಟ್), tap (दबाएं / दाबा / চাপুন / அழுத்தவும் / నొక్కండి / ಒತ್ತಿ per alarm.notificationBody), preview (hi/mr झलक matching "पाइपलाइन की झलक" / bn প্রিভিউ / ta முன்னோட்டம் / te ప్రివ్యూ / kn ಪ್ರಿವ್ಯೂ), e.g. convention (जैसे: / जसे: / যেমন: / எ.கா: / ఉదా: / ಉದಾ: matching each file's tagsHint), business (धंधा / व्यवसाय / ব্যবসা / வணிகம் / వ్యాపారం / ವ್ಯಾಪಾರ matching settings.businessName), sample (नमूना / নমুনা / மாதிரி / నమూనా / ಮಾದರಿ matching seedDemoData), danda for hi/bn multi-sentence text vs "." for mr/ta/te/kn
+- Backed up pre-edit files to .bak-t1/ (cp of hi/mr/bn/ta/te/kn.json)
+- Wrote templates-t1-insert.py (python3): text-splice insertion of the serialized "templates" block exactly before the "languageNames" line (after "alarm" close) in each file; asserts unique anchor + alarm-close line above it; parses after insert; idempotent; ZWJ (\u200c) kept in te/kn suffixed loanwords (టెంప్లేట్‌తో / ಟೆಂಪ್ಲೇಟ್‌ಗಳು, ವಾಟ్ಸಾಪ್‌ನಲ್ಲಿ) per each file's existing style
+- Placeholders {name} {company} {city} {value} {business} {date} kept EXACT as-is in varName..varDate in all 6
+- Wrote val-templates-t1.py: flattens en.templates (asserts exactly 30 leaf keys), asserts per file: templates key set EXACTLY equals en (+ same inner order), no empty/non-string values, per-key placeholder multiset equals en + required token in each var* key, zero Latin letters outside placeholders (no English leakage), every non-templates section deep-equals .bak-t1 backup, top-level order alarm > templates > languageNames (adjacent), total top-level keys = 23 (leaf total 422+30=452)
+- Ran python3 val-templates-t1.py: ALL 6 FILES PASS
+- Copied the 6 edited files over public/i18n/ and verified public copies parse identical to src copies
+
+Stage Summary:
+- hi.json, mr.json, bn.json, ta.json, te.json, kn.json each now have a native "templates" section (30 keys) positioned exactly between "alarm" and "languageNames"; all pre-existing content 100% unchanged (deep-equal verified against .bak-t1 backups)
+- Validation output: en.templates flattened keys: 30; hi/mr/bn/ta/te/kn each: PASS (templates=30 keys, leaf total 422 -> 452, top-level 23, order ai>alarm>templates>languageNames, rest unchanged) -> ALL 6 FILES PASS
+- public/i18n/ synced for the 6 files (parse-identical to src); scripts kept at project root: templates-t1-insert.py (idempotent), val-templates-t1.py; backups in .bak-t1/
+
+---
+Task ID: T-1 to T-8 (main build)
+Agent: main
+Task: WhatsApp Message Templates feature (user request: add default messages in Settings, pick one when opening a lead, message opens in WhatsApp ready to send, multiple templates)
+
+Work Log:
+- Prisma: added MessageTemplate model (name, content, isDefault) + db push
+- API: GET/POST /api/templates, PATCH/DELETE /api/templates/[id] (default uniqueness in tx, auto-promote next default on delete); seed adds 4 starter templates (First Contact default, Follow Up, Payment Reminder, Thank You - Gujarati+English); clear wipes templates; api-utils gained toBool
+- src/lib/message-templates.ts: fillTemplate() replaces {name} {company} {city} {value} {business} {date}, collapses leftover double spaces; templateVarsFromLead() (en-IN ₹ value, date); sampleTemplateVars() for previews; missing businessName falls back to "Nova Leads"
+- i18n: 30-key "templates" section added to en.json + gu.json (hand-written pure Gujarati), then 2 parallel subagents (T-tr-1: hi/mr/bn/ta/te/kn, T-tr-2: ml/pa/or/as/ur) - ALL 13 languages validated (30 keys, placeholders intact, backups + public/i18n synced)
+- Settings: TemplateSettingsCard - list (max-h-96 scroll, default badge, edit/delete), Add/Edit dialog (name, content, {var} insert chips, live PREVIEW with sample data, set-as-default switch), delete confirm dialog
+- Lead detail: replaced old AI-only card with unified WhatsApp Message composer - template chips (horizontal scroll, selected=primary), auto-fill default template on open with variables filled, editable textarea, Copy / Write with AI (replaces text) / Send via WhatsApp (wa.me + logs "whatsapp" activity "Sent WhatsApp using template: X"); quick WhatsApp action now uses composed text
+- Verified in browser: alarm interruptions dismissed (engine working); CRUD API round-trip (create w/ default switch, patch, delete + auto-promote); Add Template UI with Gujarati content + var chips + live preview saved as default; lead composer auto-fills "Rajesh Patel, દિવાળી ઓફર ચાલુ છે! ... ₹25,000..." with Diwali Offer chip active; Send opened api.whatsapp.com with phone=919876543210 + full encoded Gujarati message; activity logged in timeline; Gujarati settings shows "મેસેજ ટેમ્પલેટ / ડિફૉલ્ટ" natively
+- Lint clean, no runtime errors in dev.log
+
+Stage Summary:
+- Message Templates feature complete: users add unlimited default messages in Settings, pick per-lead from chips, variables auto-fill, one tap to WhatsApp
+- All 13 languages have templates.* translations (30 keys each)
+- Dev server restart pattern for this sandbox: (bun run dev > /dev/null 2>&1 &) inside subshell with set -m survives between tool calls; plain nohup does NOT

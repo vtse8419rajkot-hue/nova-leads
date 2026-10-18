@@ -155,3 +155,13 @@ model Setting {
   key   String @id
   value String
 }
+
+// ============ MESSAGE TEMPLATES (WhatsApp quick messages) ============
+model MessageTemplate {
+  id        String   @id @default(cuid())
+  name      String // e.g. "First Contact", "Payment Reminder"
+  content   String   // body with placeholders: {name} {company} {city} {value} {business} {date}
+  isDefault Boolean  @default(false) // opens automatically in lead composer
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

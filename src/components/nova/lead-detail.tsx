@@ -16,9 +16,11 @@ import {
   Phone, MessageCircle, Mail, StickyNote, MapPin, Building2, Calendar, User, IndianRupee,
   Trash2, Pencil, CheckCircle2, XCircle, FileText, Plus, Sparkles, Copy, Loader2, ClipboardList,
 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { fillTemplate, templateVarsFromLead } from "@/lib/message-templates"
 import {
   api, LEAD_STATUSES, relTime, dateLabel, dateTimeLabel,
-  type Lead, type TeamMember, type Task, type Quote,
+  type Lead, type TeamMember, type Task, type Quote, type MessageTemplate,
 } from "./api"
 import { StatusBadge, PriorityBadge, Avatar, STATUS_DOT, EmptyState } from "./ui-bits"
 import { LeadForm } from "./lead-form"
@@ -59,9 +61,13 @@ export function LeadDetail({
   const [outcome, setOutcome] = useState("connected")
   const [editOpen, setEditOpen] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
-  const [aiMsg, setAiMsg] = useState<string | null>(null)
   const [followUpAt, setFollowUpAt] = useState("")
   const [taskTitle, setTaskTitle] = useState("")
+  // Message composer state (templates + editable text)
+  const [templates, setTemplates] = useState<MessageTemplate[]>([])
+  const [selectedTid, setSelectedTid] = useState<string | null>(null)
+  const [msgText, setMsgText] = useState("")
+  const [businessName, setBusinessName] = useState("")
 
   const load = useCallback(async () => {
     if (!leadId) return
@@ -79,22 +85,43 @@ export function LeadDetail({
   }, [leadId, t])
 
   useEffect(() => {
-    if (open && leadId) load()
+    if (open && leadId) {
+      load()
+      // Load message templates + business name for the composer
+      api.get<MessageTemplate[]>("/api/templates")
+        .then((ts) => setTemplates(ts))
+        .catch(() => setTemplates([]))
+      api.get<Record<string, string>>("/api/settings")
+        .then((s) => setBusinessName(s.businessName || ""))
+        .catch(() => {})
+    }
     if (!open) {
-      setAiMsg(null)
+      setMsgText("")
+      setSelectedTid(null)
       setNote("")
     }
   }, [open, leadId, load])
 
+  // Auto-fill the composer with the default template once lead + templates are ready
+  useEffect(() => {
+    if (!lead || !open) return
+    if (msgText.trim()) return // already filled / user typing
+    const def = templates.find((x) => x.isDefault) || templates[0]
+    if (def) {
+      setSelectedTid(def.id)
+      setMsgText(fillTemplate(def.content, templateVarsFromLead(lead, businessName)))
+    }
+  }, [lead, templates, businessName, open, msgText])
+
   if (!leadId) return null
 
-  async function addActivity(type: string) {
+  async function addActivity(type: string, opts?: { notes?: string; title?: string }) {
     if (type === "note" && !note.trim()) return
     try {
       await api.post(`/api/leads/${leadId}/activities`, {
         type,
-        title: type === "note" ? "Note" : type,
-        notes: type === "note" ? note : note || null,
+        title: opts?.title || (type === "note" ? "Note" : type),
+        notes: opts?.notes ?? (type === "note" ? note : note || null),
         outcome: type === "call" ? outcome : null,
       })
       setNote("")
@@ -180,6 +207,11 @@ export function LeadDetail({
     }
   }
 
+  function pickTemplate(tp: MessageTemplate) {
+    setSelectedTid(tp.id)
+    if (lead) setMsgText(fillTemplate(tp.content, templateVarsFromLead(lead, businessName)))
+  }
+
   async function generateAiMessage(kind: string) {
     setAiLoading(true)
     try {
@@ -190,12 +222,31 @@ export function LeadDetail({
         language: lang === "gu" ? "Gujarati" : lang === "hi" ? "Hindi" : lang === "mr" ? "Marathi" : lang === "bn" ? "Bengali" : lang === "ta" ? "Tamil" : lang === "te" ? "Telugu" : lang === "kn" ? "Kannada" : lang === "ml" ? "Malayalam" : lang === "pa" ? "Punjabi" : lang === "or" ? "Odia" : lang === "as" ? "Assamese" : lang === "ur" ? "Urdu" : "English",
         context: kind,
       })
-      setAiMsg(res.message)
+      setSelectedTid(null)
+      setMsgText(res.message)
     } catch {
       toast({ title: t("common.error"), variant: "destructive" })
     } finally {
       setAiLoading(false)
     }
+  }
+
+  function sendWhatsapp() {
+    if (!msgText.trim()) {
+      toast({ title: t("templates.emptyContent"), variant: "destructive" })
+      return
+    }
+    window.open(waLink(msgText), "_blank")
+    const tp = templates.find((x) => x.id === selectedTid)
+    addActivity("whatsapp", {
+      title: "WhatsApp",
+      notes: tp ? `${t("templates.sentActivity")}: ${tp.name}` : msgText.slice(0, 120),
+    })
+  }
+
+  function copyMsg() {
+    navigator.clipboard.writeText(msgText)
+    toast({ title: t("ai.copied") })
   }
 
   const waLink = (msg?: string) =>
@@ -262,7 +313,7 @@ export function LeadDetail({
                     <Phone className="h-4 w-4 text-primary" />
                     <span className="text-[10px]">{t("common.call")}</span>
                   </Button>
-                  <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={() => window.open(waLink(), "_blank")}>
+                  <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={() => window.open(waLink(msgText.trim() || undefined), "_blank")}>
                     <MessageCircle className="h-4 w-4 text-emerald-600" />
                     <span className="text-[10px]">{t("common.whatsapp")}</span>
                   </Button>
@@ -354,29 +405,60 @@ export function LeadDetail({
                   <FileText className="me-2 h-4 w-4" /> {t("leads.createQuote")}
                 </Button>
 
-                {/* AI follow-up */}
+                {/* WhatsApp message composer: templates + AI + editable text */}
                 <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
                   <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-                    <Sparkles className="h-4 w-4 text-primary" /> {t("leads.generateFollowUp")}
+                    <MessageCircle className="h-4 w-4 text-emerald-600" /> {t("templates.composerTitle")}
                   </p>
-                  {aiMsg ? (
-                    <div className="space-y-2">
-                      <p className="whitespace-pre-wrap rounded-lg bg-card p-3 text-sm">{aiMsg}</p>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="flex-1" onClick={() => { navigator.clipboard.writeText(aiMsg); toast({ title: t("ai.copied") }) }}>
-                          <Copy className="me-1 h-3.5 w-3.5" /> {t("ai.copyMessage")}
-                        </Button>
-                        <Button size="sm" className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => window.open(waLink(aiMsg), "_blank")}>
-                          <MessageCircle className="me-1 h-3.5 w-3.5" /> {t("ai.sendWhatsapp")}
-                        </Button>
-                      </div>
-                    </div>
+                  {templates.length === 0 ? (
+                    <p className="mb-2 rounded-lg border border-dashed bg-card p-2.5 text-[11px] text-muted-foreground">
+                      {t("templates.noTemplatesDesc")}
+                    </p>
                   ) : (
-                    <Button size="sm" onClick={() => generateAiMessage("follow_up")} disabled={aiLoading}>
-                      {aiLoading ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <Sparkles className="me-2 h-4 w-4" />}
-                      {aiLoading ? t("ai.generating") : t("leads.generateFollowUp")}
-                    </Button>
+                    <>
+                      <p className="mb-1.5 text-[11px] text-muted-foreground">{t("templates.pickTemplate")}</p>
+                      <div className="nova-scroll -mx-1 mb-2.5 flex gap-1.5 overflow-x-auto px-1 pb-1">
+                        {templates.map((tp) => (
+                          <button
+                            key={tp.id}
+                            onClick={() => pickTemplate(tp)}
+                            className={cn(
+                              "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-95",
+                              selectedTid === tp.id
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-border bg-card hover:border-primary/40"
+                            )}
+                          >
+                            {tp.name}
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   )}
+                  <Textarea
+                    rows={6}
+                    value={msgText}
+                    onChange={(e) => setMsgText(e.target.value)}
+                    placeholder={t("templates.contentPh")}
+                    className="bg-card"
+                  />
+                  <div className="mt-2 flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1" onClick={copyMsg} disabled={!msgText.trim()}>
+                      <Copy className="me-1 h-3.5 w-3.5" /> {t("ai.copyMessage")}
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => generateAiMessage("follow_up")} disabled={aiLoading}>
+                      {aiLoading ? <Loader2 className="me-1 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="me-1 h-3.5 w-3.5" />}
+                      {aiLoading ? t("ai.generating") : t("templates.aiGenerate")}
+                    </Button>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="mt-2 w-full bg-emerald-600 hover:bg-emerald-700"
+                    onClick={sendWhatsapp}
+                    disabled={!msgText.trim()}
+                  >
+                    <MessageCircle className="me-1.5 h-4 w-4" /> {t("ai.sendWhatsapp")}
+                  </Button>
                 </div>
 
                 {/* Schedule follow-up */}

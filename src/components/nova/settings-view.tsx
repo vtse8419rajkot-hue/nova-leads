@@ -18,6 +18,7 @@ import {
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { AlarmSettingsCard } from "./alarm-settings-card"
+import { TemplateSettingsCard } from "./template-settings-card"
 
 type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
 
@@ -149,6 +150,9 @@ export function SettingsView() {
 
       {/* Alarms & Notifications */}
       <AlarmSettingsCard />
+
+      {/* Message Templates */}
+      <TemplateSettingsCard />
 
       {/* Business name */}
       <section>

@@ -158,5 +158,31 @@ export async function POST() {
     }
   }
 
+  // Message templates (starter pack) - only if none exist
+  const templateCount = await db.messageTemplate.count()
+  if (templateCount === 0) {
+    await db.messageTemplate.createMany({
+      data: [
+        {
+          name: "First Contact",
+          isDefault: true,
+          content: "નમસ્તે {name} જી 🙏\nહું {business} તરફથી સંપર્ક કરું છું.\nતમારી જરૂરિયાત જણાવશો?\nવધુ માહિતી માટે રિપ્લાય કરશો તો આનંદ થશે.",
+        },
+        {
+          name: "Follow Up",
+          content: "Hello {name} ji,\nFollowing up on your requirement. Any update from your side? I am ready to help whenever you decide.\n- {business}",
+        },
+        {
+          name: "Payment Reminder",
+          content: "નમસ્તે {name} જી,\nતમારું બાકી પેમેન્ટ યાદ અપાવવા આવ્યા.\nજલ્દી ચૂકવણી કરશો એનો આભાર 🙏\n- {business}",
+        },
+        {
+          name: "Thank You (After Sale)",
+          content: "નમસ્તે {name} જી 🙏\nઅમારી સાથે ધંધો કરવા બદલ આભાર!\nકોઈ પણ મદદ માટે ગમે ત્યારે સંપર્ક કરજો.\n- {business}",
+        },
+      ],
+    })
+  }
+
   return jsonOk({ ok: true, message: "Demo data loaded" })
 }

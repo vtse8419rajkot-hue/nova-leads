@@ -52,3 +52,19 @@ prompt
 server.log
 # Skills directory
 /skills/
+# environment & local artifacts
+.env
+.env*.local
+dev.log
+server.log
+worklog.md
+.bak-*/
+/templates-t1-insert.py
+/templates-t2-insert.py
+/val-templates-t1.py
+/val-templates-t2.py
+/alarm-a2-insert.ts
+/val-alarm-a2.ts
+/val-alarm-a3.ts
+/download
+/zscripts

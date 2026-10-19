@@ -69,3 +69,8 @@ worklog.md
 /download
 /zscripts
 tool-results/
+
+# sqlite sidecar files
+db/*.db-wal
+db/*.db-shm
+db/*.db-journal

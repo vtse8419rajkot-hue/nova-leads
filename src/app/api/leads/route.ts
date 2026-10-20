@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { jsonOk, readBody, toStr, toNum, toDate, jsonError } from "@/lib/api-utils"
+import { FOLLOWUP_AUTO_MESSAGES } from "@/lib/message-templates"
 
 // GET /api/leads - list with filters/search
 export async function GET(req: NextRequest) {
@@ -73,6 +74,20 @@ export async function POST(req: NextRequest) {
       notes: toStr(body.notes) || null,
     },
   })
+
+  // When a follow-up is scheduled at creation time, auto-create the two
+  // ready-made reminder messages (one English, one Gujarati) as personal
+  // messages. Content uses {name}/{followup}/{business} variables so the
+  // exact scheduled date & time is filled when the message is used.
+  if (nextFollowUpAt) {
+    await db.leadMessage.createMany({
+      data: FOLLOWUP_AUTO_MESSAGES.map((m) => ({
+        leadId: lead.id,
+        name: m.name,
+        content: m.content,
+      })),
+    })
+  }
 
   return jsonOk(lead, 201)
 }

@@ -18,7 +18,7 @@ import {
   MessageSquareText, Plus, Pencil, Trash2, Loader2, Star, Eye,
 } from "lucide-react"
 
-const VAR_CHIPS = ["name", "company", "city", "value", "business", "date"] as const
+const VAR_CHIPS = ["name", "company", "city", "value", "business", "date", "followup"] as const
 
 export function TemplateSettingsCard() {
   const { t } = useI18n()

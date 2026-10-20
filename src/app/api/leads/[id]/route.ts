@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { jsonOk, jsonError, readBody, toStr, toNum, toDate } from "@/lib/api-utils"
+import { FOLLOWUP_AUTO_MESSAGES } from "@/lib/message-templates"
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -57,6 +58,29 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   const lead = await db.lead.update({ where: { id }, data, include: { assignedTo: true } })
+
+  // When a follow-up time is newly set or changed, auto-ensure the two
+  // ready-made reminder messages (English + Gujarati) exist as personal
+  // messages. Skips any the user already has (or renamed), no duplicates.
+  if ("nextFollowUpAt" in body) {
+    const newFu = toDate(body.nextFollowUpAt)
+    const oldFu = existing.nextFollowUpAt
+    const changed =
+      (newFu && !oldFu) || (newFu && oldFu && newFu.getTime() !== oldFu.getTime())
+    if (newFu && changed) {
+      const have = await db.leadMessage.findMany({
+        where: { leadId: id, name: { in: FOLLOWUP_AUTO_MESSAGES.map((m) => m.name) } },
+        select: { name: true },
+      })
+      const haveNames = new Set(have.map((m) => m.name))
+      const missing = FOLLOWUP_AUTO_MESSAGES.filter((m) => !haveNames.has(m.name))
+      if (missing.length) {
+        await db.leadMessage.createMany({
+          data: missing.map((m) => ({ leadId: id, name: m.name, content: m.content })),
+        })
+      }
+    }
+  }
 
   if (statusChangedTo) {
     await db.activity.create({

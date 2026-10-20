@@ -1,0 +1,248 @@
+#!/usr/bin/env python3
+# Adds auth / onboarding / profile / favorites / attachments / sms keys to en + gu locales
+import json, shutil, os
+
+ROOT = "/home/z/my-project"
+LOCALES = f"{ROOT}/src/i18n/locales"
+PUBLIC = f"{ROOT}/public/i18n"
+
+EN = {
+    "auth": {
+        "welcome": "Welcome to Nova Leads",
+        "welcomeDesc": "India's simplest lead CRM - capture, follow up, convert",
+        "login": "Login",
+        "signup": "Sign Up",
+        "yourName": "Your Name",
+        "orgName": "Business / Organization Name",
+        "businessEmail": "Business Email",
+        "phone": "Phone (with country code)",
+        "password": "Password",
+        "createAccount": "Create Account",
+        "signIn": "Sign In",
+        "signingIn": "Signing in...",
+        "creating": "Creating account...",
+        "haveAccount": "Already have an account?",
+        "noAccount": "New to Nova Leads?",
+        "logout": "Logout",
+        "logoutConfirm": "Logout from Nova Leads?",
+        "emailInvalid": "Please enter a valid email",
+        "passwordShort": "Password must be at least 6 characters",
+        "emailTaken": "This email is already registered. Please login.",
+        "wrongCreds": "Wrong email or password",
+        "welcomeBack": "Welcome back",
+    },
+    "onboarding": {
+        "stepOf": "Step {n} of {total}",
+        "goalTitle": "What is your main goal?",
+        "goalDesc": "We will shape the app around it",
+        "goal.manageLeads": "Manage existing leads",
+        "goal.generateLeads": "Generate new leads",
+        "goal.both": "Manage + Generate leads",
+        "goal.productivity": "Improve sales productivity",
+        "businessTypeTitle": "What is your business type?",
+        "businessType": "Business Type",
+        "bt.real_estate": "Real Estate / Property",
+        "bt.finance": "Finance & Insurance",
+        "bt.digital": "Digital Marketing Agency",
+        "bt.consulting": "Consulting & Advisory",
+        "bt.it": "IT / Software Services",
+        "bt.manufacturing": "Manufacturing & Trading",
+        "bt.retail": "Retail & E-commerce",
+        "bt.training": "Training & Education",
+        "bt.healthcare": "Healthcare & Pharma",
+        "bt.automotive": "Automotive",
+        "bt.business_services": "Business Services",
+        "bt.travel": "Travel & Tourism",
+        "bt.food": "Food & Beverage",
+        "bt.other": "Other",
+        "categoryTitle": "Business Category",
+        "cat.b2b": "B2B",
+        "cat.b2c": "B2C",
+        "cat.both": "B2B + B2C",
+        "roleTitle": "Your Role",
+        "role.owner": "Owner / Founder",
+        "role.sales_manager": "Sales Manager",
+        "role.sales_rep": "Sales Rep",
+        "role.marketing": "Marketing",
+        "role.it_ops": "IT / Ops",
+        "role.other": "Other",
+        "teamSizeTitle": "Team Size",
+        "ts.just_me": "Just me",
+        "ts.2_5": "2 - 5",
+        "ts.6_15": "6 - 15",
+        "ts.16_50": "16 - 50",
+        "ts.50_plus": "50+",
+        "aboutTitle": "About your business",
+        "aboutDesc": "This info can be used in your messages",
+        "website": "Website",
+        "about": "About",
+        "getStarted": "Start Using Nova Leads",
+        "skip": "Skip",
+    },
+    "profile": {
+        "title": "My Profile",
+        "desc": "Account & business info - used in message templates",
+        "saved": "Profile saved",
+        "account": "Account",
+        "businessInfo": "Business Info",
+        "emailReadOnly": "Email (login id)",
+        "personalMsgsHint": "{business} is used as the signature in messages",
+    },
+    "leads": {
+        "favorites": "Favorites",
+        "favorite": "Add to favorites",
+        "unfavorite": "Remove from favorites",
+    },
+    "attachments": {
+        "title": "Attachments",
+        "add": "Add Attachment",
+        "uploading": "Uploading...",
+        "empty": "No attachments yet. Add photos, PDF, Excel or video.",
+        "tooBig": "File is too large (max 4 MB)",
+        "download": "Download",
+        "view": "View",
+        "deleted": "Attachment deleted",
+        "confirmDelete": "Delete again to confirm",
+        "kind.image": "Image",
+        "kind.pdf": "PDF",
+        "kind.excel": "Excel",
+        "kind.video": "Video",
+        "kind.other": "File",
+    },
+    "sms": {
+        "send": "Send SMS",
+        "sentActivity": "SMS opened in phone SMS app",
+    },
+}
+
+GU = {
+    "auth": {
+        "welcome": "નોવા લીડ્સમાં આપનું સ્વાગત છે",
+        "welcomeDesc": "ભારતનું સૌથી સરળ લીડ CRM — લીડ પકડો, ફોલો-અપ કરો, ગ્રાહક બનાવો",
+        "login": "લોગિન",
+        "signup": "સાઇન અપ",
+        "yourName": "તમારું નામ",
+        "orgName": "બિઝનેસ / સંસ્થાનું નામ",
+        "businessEmail": "બિઝનેસ ઈમેલ",
+        "phone": "ફોન (દેશ કોડ સાથે)",
+        "password": "પાસવર્ડ",
+        "createAccount": "એકાઉન્ટ બનાવો",
+        "signIn": "સાઇન ઇન",
+        "signingIn": "સાઇન ઇન થઈ રહ્યું છે...",
+        "creating": "એકાઉન્ટ બની રહ્યું છે...",
+        "haveAccount": "પહેલેથી એકાઉન્ટ છે?",
+        "noAccount": "નોવા લીડ્સ પર નવા છો?",
+        "logout": "લોગ આઉટ",
+        "logoutConfirm": "નોવા લીડ્સમાંથી લોગ આઉટ કરવું છે?",
+        "emailInvalid": "સાચો ઈમેલ લખો",
+        "passwordShort": "પાસવર્ડ ઓછામાં ઓછા ૬ અક્ષરનો હોવો જોઈએ",
+        "emailTaken": "આ ઈમેલ પહેલેથી રજીસ્ટર છે. લોગિન કરો.",
+        "wrongCreds": "ઈમેલ કે પાસવર્ડ ખોટો છે",
+        "welcomeBack": "ફરી સ્વાગત છે",
+    },
+    "onboarding": {
+        "stepOf": "સ્ટેપ {n} / {total}",
+        "goalTitle": "તમારો મુખ્ય હેતુ શું છે?",
+        "goalDesc": "એના મુજબ એપ તૈયાર થશે",
+        "goal.manageLeads": "હાલની લીડ્સ મેનેજ કરવી",
+        "goal.generateLeads": "નવી લીડ્સ મેળવવી",
+        "goal.both": "મેનેજ + નવી લીડ્સ બંને",
+        "goal.productivity": "વેચાણની ઉત્પાદકતા વધારવી",
+        "businessTypeTitle": "તમારો બિઝનેસ ટાઈપ શું છે?",
+        "businessType": "બિઝનેસ ટાઈપ",
+        "bt.real_estate": "રિયલ એસ્ટેટ / પ્રોપર્ટી",
+        "bt.finance": "ફાઈનાન્સ અને વીમો",
+        "bt.digital": "ડિજિટલ માર્કેટિંગ એજન્સી",
+        "bt.consulting": "કન્સલ્ટિંગ એન્ડ એડવાઈઝરી",
+        "bt.it": "IT / સોફ્ટવેર સર્વિસ",
+        "bt.manufacturing": "મેન્યુફેક્ચરિંગ એન્ડ ટ્રેડિંગ",
+        "bt.retail": "રિટેલ અને ઈ-કોમર્સ",
+        "bt.training": "ટ્રેનિંગ એન્ડ એજ્યુકેશન",
+        "bt.healthcare": "હેલ્થકેર એન્ડ ફાર્મા",
+        "bt.automotive": "ઓટોમોટિવ",
+        "bt.business_services": "બિઝનેસ સર્વિસ",
+        "bt.travel": "ટ્રાવેલ એન્ડ ટુરિઝમ",
+        "bt.food": "ફૂડ એન્ડ બેવરેજ",
+        "bt.other": "અન્ય",
+        "categoryTitle": "બિઝનેસ કેટેગરી",
+        "cat.b2b": "B2B",
+        "cat.b2c": "B2C",
+        "cat.both": "B2B + B2C",
+        "roleTitle": "તમારી ભૂમિકા",
+        "role.owner": "માલિક / ફાઉન્ડર",
+        "role.sales_manager": "સેલ્સ મેનેજર",
+        "role.sales_rep": "સેલ્સ રિપ",
+        "role.marketing": "માર્કેટિંગ",
+        "role.it_ops": "IT / ઓપ્સ",
+        "role.other": "અન્ય",
+        "teamSizeTitle": "ટીમનું કદ",
+        "ts.just_me": "માત્ર હું",
+        "ts.2_5": "2 - 5",
+        "ts.6_15": "6 - 15",
+        "ts.16_50": "16 - 50",
+        "ts.50_plus": "50+",
+        "aboutTitle": "તમારા બિઝનેસ વિશે",
+        "aboutDesc": "આ માહિતી તમારા સંદેશામાં વપરાશે",
+        "website": "વેબસાઈટ",
+        "about": "વિશે",
+        "getStarted": "નોવા લીડ્સ શરૂ કરો",
+        "skip": "છોડો",
+    },
+    "profile": {
+        "title": "મારી પ્રોફાઈલ",
+        "desc": "એકાઉન્ટ અને બિઝનેસ માહિતી — સંદેશાના ટેમ્પલેટમાં વપરાય છે",
+        "saved": "પ્રોફાઈલ સેવ થઈ",
+        "account": "એકાઉન્ટ",
+        "businessInfo": "બિઝનેસ માહિતી",
+        "emailReadOnly": "ઈમેલ (લોગિન આઈડી)",
+        "personalMsgsHint": "સંદેશામાં {business} તરીકે વપરાશે",
+    },
+    "leads": {
+        "favorites": "ફેવરિટ",
+        "favorite": "ફેવરિટમાં ઉમેરો",
+        "unfavorite": "ફેવરિટમાંથી કાઢો",
+    },
+    "attachments": {
+        "title": "અટેચમેન્ટ",
+        "add": "અટેચમેન્ટ ઉમેરો",
+        "uploading": "અપલોડ થઈ રહ્યું છે...",
+        "empty": "હજી કોઈ અટેચમેન્ટ નથી. ફોટો, PDF, Excel કે વિડિયો ઉમેરો.",
+        "tooBig": "ફાઈલ ખૂબ મોટી છે (મહત્તમ 4 MB)",
+        "download": "ડાઉનલોડ",
+        "view": "જુઓ",
+        "deleted": "અટેચમેન્ટ ડિલીટ થઈ",
+        "confirmDelete": "પાકું કરવા ફરી દબાવો",
+        "kind.image": "ઈમેજ",
+        "kind.pdf": "PDF",
+        "kind.excel": "Excel",
+        "kind.video": "વિડિયો",
+        "kind.other": "ફાઈલ",
+    },
+    "sms": {
+        "send": "SMS મોકલો",
+        "sentActivity": "SMS એપમાં ખોલ્યું",
+    },
+}
+
+
+def deep_merge(dst: dict, src: dict) -> dict:
+    for k, v in src.items():
+        if isinstance(v, dict):
+            dst[k] = deep_merge(dst.get(k, {}), v)
+        else:
+            dst[k] = v
+    return dst
+
+
+for code, add in (("en", EN), ("gu", GU)):
+    p = f"{LOCALES}/{code}.json"
+    data = json.load(open(p, encoding="utf-8"))
+    before = sum(len(v) if isinstance(v, dict) else 1 for v in data.values())
+    data = deep_merge(data, json.loads(json.dumps(add)))
+    json.dump(data, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    open(p, "a", encoding="utf-8").write("\n")
+    after = sum(len(v) if isinstance(v, dict) else 1 for v in data.values())
+    print(f"{code}: sections+{after-before}")
+    shutil.copy(p, f"{PUBLIC}/{code}.json")
+
+print("done")

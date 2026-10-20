@@ -42,6 +42,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if ("notes" in body) data.notes = toStr(body.notes) || null
   if ("tags" in body) data.tags = toStr(body.tags)
   if ("assignedToId" in body) data.assignedToId = toStr(body.assignedToId) || null
+  if ("favorite" in body) data.favorite = body.favorite === true
   if ("nextFollowUpAt" in body) data.nextFollowUpAt = toDate(body.nextFollowUpAt)
   if ("lostReason" in body) data.lostReason = toStr(body.lostReason) || null
   if ("aiScore" in body) data.aiScore = toNum(body.aiScore, existing.aiScore)

@@ -18,12 +18,14 @@ import { Separator } from "@/components/ui/separator"
 import {
   Phone, MessageCircle, Mail, StickyNote, MapPin, Building2, Calendar, User, IndianRupee,
   Trash2, Pencil, CheckCircle2, XCircle, FileText, Plus, Sparkles, Copy, Loader2, ClipboardList,
+  Star, Paperclip, Upload, FileSpreadsheet, Image as ImageIcon, Video, File as FileIcon, Download,
+  MessageSquare,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { fillTemplate, templateVarsFromLead, TEMPLATE_VARS } from "@/lib/message-templates"
 import {
-  api, LEAD_STATUSES, relTime, dateLabel, dateTimeLabel,
-  type Lead, type TeamMember, type Task, type Quote, type MessageTemplate, type LeadMessage,
+  api, LEAD_STATUSES, relTime, dateLabel, dateTimeLabel, toLocalInput,
+  type Lead, type TeamMember, type Task, type Quote, type MessageTemplate, type LeadMessage, type LeadAttachment,
 } from "./api"
 import { StatusBadge, PriorityBadge, Avatar, STATUS_DOT, EmptyState } from "./ui-bits"
 import { LeadForm } from "./lead-form"
@@ -37,7 +39,22 @@ const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
   status_change: <CheckCircle2 className="h-3.5 w-3.5" />,
   created: <Plus className="h-3.5 w-3.5" />,
   visit: <MapPin className="h-3.5 w-3.5" />,
-  sms: <MessageCircle className="h-3.5 w-3.5" />,
+  sms: <MessageSquare className="h-3.5 w-3.5" />,
+  attachment: <Paperclip className="h-3.5 w-3.5" />,
+}
+
+function formatBytes(n: number): string {
+  if (n >= 1048576) return `${(n / 1048576).toFixed(1)} MB`
+  if (n >= 1024) return `${Math.round(n / 1024)} KB`
+  return `${n} B`
+}
+
+function AttIcon({ kind }: { kind: string }) {
+  if (kind === "image") return <ImageIcon className="h-4 w-4" />
+  if (kind === "pdf") return <FileText className="h-4 w-4" />
+  if (kind === "excel") return <FileSpreadsheet className="h-4 w-4" />
+  if (kind === "video") return <Video className="h-4 w-4" />
+  return <FileIcon className="h-4 w-4" />
 }
 
 export function LeadDetail({
@@ -80,6 +97,11 @@ export function LeadDetail({
   const [pmContent, setPmContent] = useState("")
   const [pmSaving, setPmSaving] = useState(false)
   const [pmConfirmDelete, setPmConfirmDelete] = useState(false)
+  // Attachments (photo / pdf / excel / video)
+  const [attachments, setAttachments] = useState<LeadAttachment[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [attConfirmId, setAttConfirmId] = useState<string | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
     if (!leadId) return
@@ -109,6 +131,9 @@ export function LeadDetail({
       api.get<LeadMessage[]>(`/api/leads/${leadId}/messages`)
         .then((ms) => setLeadMsgs(ms))
         .catch(() => setLeadMsgs([]))
+      api.get<LeadAttachment[]>(`/api/leads/${leadId}/attachments`)
+        .then((ats) => setAttachments(ats))
+        .catch(() => setAttachments([]))
     }
     if (!open) {
       setMsgText("")
@@ -116,6 +141,8 @@ export function LeadDetail({
       setSelectedPid(null)
       setPmOpen(false)
       setNote("")
+      setFollowUpAt("")
+      setAttConfirmId(null)
     }
   }, [open, leadId, load])
 
@@ -183,6 +210,9 @@ export function LeadDetail({
         type: "follow_up",
         dueAt: new Date(followUpAt).toISOString(),
       })
+      // Also store on the lead so the selected date/time SHOWS on the lead
+      // card, info card and fills the {followup} variable in messages.
+      await api.patch(`/api/leads/${leadId}`, { nextFollowUpAt: new Date(followUpAt).toISOString() })
       setTaskTitle("")
       setFollowUpAt("")
       await load()
@@ -340,6 +370,85 @@ export function LeadDetail({
     })
   }
 
+  // SMS: hands off to the phone's own SMS app (same as HelloLeads)
+  function sendSms(text?: string) {
+    const body = (text ?? msgText).trim()
+    const digits = lead?.phone.replace(/\D/g, "").slice(-10) || ""
+    window.location.href = `sms:+91${digits}${body ? `?body=${encodeURIComponent(body)}` : ""}`
+    addActivity("sms", { title: "SMS", notes: t("sms.sentActivity") })
+  }
+
+  function sendEmail() {
+    if (!lead?.email) {
+      toast({ title: t("common.error"), description: t("common.email"), variant: "destructive" })
+      return
+    }
+    const subject = encodeURIComponent(`${businessName || "Nova Leads"} - ${lead.name}`)
+    const body = encodeURIComponent(msgText.trim())
+    window.location.href = `mailto:${lead.email}?subject=${subject}${msgText.trim() ? `&body=${body}` : ""}`
+    addActivity("email", { title: "Email", notes: msgText.trim().slice(0, 120) })
+  }
+
+  async function toggleFavoriteLead() {
+    if (!lead) return
+    const next = !lead.favorite
+    setLead({ ...lead, favorite: next })
+    try {
+      await api.patch(`/api/leads/${leadId}`, { favorite: next })
+      onChanged()
+    } catch {
+      setLead({ ...lead, favorite: !next })
+      toast({ title: t("common.error"), variant: "destructive" })
+    }
+  }
+
+  function pickFile() {
+    fileInputRef.current?.click()
+  }
+
+  async function onFilesChosen(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    const list = Array.from(files)
+    for (const f of list) {
+      if (f.size > 4 * 1024 * 1024) {
+        toast({ title: `${f.name}: ${t("attachments.tooBig")}`, variant: "destructive" })
+        continue
+      }
+      setUploading(true)
+      try {
+        const fd = new FormData()
+        fd.append("file", f)
+        const res = await fetch(`/api/leads/${leadId}/attachments`, { method: "POST", body: fd })
+        if (!res.ok) throw new Error()
+        const att = (await res.json()) as LeadAttachment
+        setAttachments((prev) => [att, ...prev])
+        await load()
+      } catch {
+        toast({ title: t("common.error"), variant: "destructive" })
+      } finally {
+        setUploading(false)
+      }
+    }
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }
+
+  async function deleteAttachment(id: string) {
+    if (attConfirmId !== id) {
+      setAttConfirmId(id)
+      return
+    }
+    setAttConfirmId(null)
+    try {
+      await api.del(`/api/attachments/${id}`)
+      setAttachments((prev) => prev.filter((a) => a.id !== id))
+      await load()
+      toast({ title: t("attachments.deleted") })
+    } catch {
+      toast({ title: t("common.error"), variant: "destructive" })
+    }
+  }
+
   function copyMsg() {
     navigator.clipboard.writeText(msgText)
     toast({ title: t("ai.copied") })
@@ -371,6 +480,15 @@ export function LeadDetail({
                     </p>
                   </div>
                   <div className="flex gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={lead.favorite ? t("leads.unfavorite") : t("leads.favorite")}
+                      onClick={toggleFavoriteLead}
+                      className={lead.favorite ? "text-amber-400" : "text-muted-foreground"}
+                    >
+                      <Star className={cn("h-4 w-4", lead.favorite && "fill-amber-400 text-amber-400")} />
+                    </Button>
                     <Button size="icon" variant="ghost" onClick={() => setEditOpen(true)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -403,9 +521,9 @@ export function LeadDetail({
                   )}
                 </div>
 
-                {/* Quick actions */}
-                <div className="grid grid-cols-4 gap-2">
-                  <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={() => (window.location.href = `tel:${lead.phone}`)}>
+                {/* Quick action circles (HelloLeads style): call / whatsapp / SMS / email / visit */}
+                <div className="grid grid-cols-5 gap-2">
+                  <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={() => { window.location.href = `tel:${lead.phone}`; addActivity("call") }}>
                     <Phone className="h-4 w-4 text-primary" />
                     <span className="text-[10px]">{t("common.call")}</span>
                   </Button>
@@ -413,9 +531,13 @@ export function LeadDetail({
                     <MessageCircle className="h-4 w-4 text-emerald-600" />
                     <span className="text-[10px]">{t("common.whatsapp")}</span>
                   </Button>
-                  <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={() => addActivity("call")}>
-                    <ClipboardList className="h-4 w-4 text-amber-600" />
-                    <span className="text-[10px]">{t("leads.logCall")}</span>
+                  <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={() => sendSms(msgText.trim() || undefined)}>
+                    <MessageSquare className="h-4 w-4 text-sky-600" />
+                    <span className="text-[10px]">{t("sms.send")}</span>
+                  </Button>
+                  <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={sendEmail}>
+                    <Mail className="h-4 w-4 text-amber-600" />
+                    <span className="text-[10px]">{t("common.email")}</span>
                   </Button>
                   <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={() => addActivity("visit")}>
                     <MapPin className="h-4 w-4 text-rose-600" />
@@ -500,6 +622,76 @@ export function LeadDetail({
                 <Button variant="outline" className="w-full" onClick={() => onCreateQuote(lead)}>
                   <FileText className="me-2 h-4 w-4" /> {t("leads.createQuote")}
                 </Button>
+
+                {/* Attachments: photos / PDF / Excel / video (up to 4 MB each) */}
+                <div className="rounded-xl border p-4">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold">
+                      <Paperclip className="h-4 w-4 text-primary" /> {t("attachments.title")}
+                    </p>
+                    <Button size="sm" variant="outline" onClick={pickFile} disabled={uploading}>
+                      {uploading ? <Loader2 className="me-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="me-1.5 h-3.5 w-3.5" />}
+                      {uploading ? t("attachments.uploading") : t("attachments.add")}
+                    </Button>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    accept="image/*,application/pdf,.pdf,.xls,.xlsx,.csv,video/*"
+                    onChange={onFilesChosen}
+                  />
+                  {attachments.length === 0 ? (
+                    <p className="rounded-lg border border-dashed p-3 text-center text-[11px] text-muted-foreground">
+                      {t("attachments.empty")}
+                    </p>
+                  ) : (
+                    <div className="max-h-64 space-y-1.5 overflow-y-auto nova-scroll">
+                      {attachments.map((a) => (
+                        <div key={a.id} className="flex items-center gap-2 rounded-lg border bg-card p-2 text-sm">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                            <AttIcon kind={a.kind} />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-medium">{a.name}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {t(`attachments.kind.${a.kind}`)} · {formatBytes(a.size)} · {dateLabel(a.createdAt)}
+                            </p>
+                          </div>
+                          <a
+                            href={`/api/attachments/${a.id}?inline=1`}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={t("attachments.view")}
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <FileIcon className="h-3.5 w-3.5" />
+                          </a>
+                          <a
+                            href={`/api/attachments/${a.id}`}
+                            download={a.name}
+                            aria-label={t("attachments.download")}
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </a>
+                          <button
+                            aria-label={t("common.delete")}
+                            onClick={() => deleteAttachment(a.id)}
+                            className={cn(
+                              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full hover:bg-destructive/10",
+                              attConfirmId === a.id ? "bg-destructive text-white hover:bg-destructive" : "text-muted-foreground hover:text-destructive"
+                            )}
+                            title={attConfirmId === a.id ? t("attachments.confirmDelete") : t("common.delete")}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {/* WhatsApp message composer: templates + AI + editable text */}
                 <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
@@ -603,13 +795,22 @@ export function LeadDetail({
                   >
                     <MessageCircle className="me-1.5 h-4 w-4" /> {t("ai.sendWhatsapp")}
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-2 w-full"
+                    onClick={() => sendSms()}
+                    disabled={!msgText.trim()}
+                  >
+                    <MessageSquare className="me-1.5 h-4 w-4" /> {t("sms.send")}
+                  </Button>
                 </div>
 
                 {/* Schedule follow-up */}
                 <div className="space-y-2 rounded-xl border p-4">
                   <p className="text-sm font-semibold">{t("leads.scheduleFollowUp")}</p>
                   <Input placeholder={t("tasks.taskTitle")} value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} />
-                  <Input type="datetime-local" value={followUpAt} onChange={(e) => setFollowUpAt(e.target.value)} />
+                  <Input type="datetime-local" value={followUpAt || toLocalInput(lead.nextFollowUpAt)} onChange={(e) => setFollowUpAt(e.target.value)} />
                   <Button size="sm" className="w-full" onClick={scheduleFollowUp}>{t("common.save")}</Button>
                 </div>
 

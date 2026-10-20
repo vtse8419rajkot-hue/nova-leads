@@ -147,7 +147,10 @@
     "createQuote": "Create Quote",
     "createTask": "Create Task",
     "leadInfo": "Lead Information",
-    "tagsHint": "Comma separated e.g. urgent, premium"
+    "tagsHint": "Comma separated e.g. urgent, premium",
+    "favorites": "Favorites",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites"
   },
   "status": {
     "new": "New",
@@ -517,5 +520,118 @@
     "saved": "Personal message saved",
     "deleted": "Personal message deleted",
     "sentActivity": "Sent personal message on WhatsApp"
+  },
+  "auth": {
+    "welcome": "Welcome to Nova Leads",
+    "welcomeDesc": "India's simplest lead CRM - capture, follow up, convert",
+    "login": "Login",
+    "signup": "Sign Up",
+    "yourName": "Your Name",
+    "orgName": "Business / Organization Name",
+    "businessEmail": "Business Email",
+    "phone": "Phone (with country code)",
+    "password": "Password",
+    "createAccount": "Create Account",
+    "signIn": "Sign In",
+    "signingIn": "Signing in...",
+    "creating": "Creating account...",
+    "haveAccount": "Already have an account?",
+    "noAccount": "New to Nova Leads?",
+    "logout": "Logout",
+    "logoutConfirm": "Logout from Nova Leads?",
+    "emailInvalid": "Please enter a valid email",
+    "passwordShort": "Password must be at least 6 characters",
+    "emailTaken": "This email is already registered. Please login.",
+    "wrongCreds": "Wrong email or password",
+    "welcomeBack": "Welcome back"
+  },
+  "onboarding": {
+    "stepOf": "Step {n} of {total}",
+    "goalTitle": "What is your main goal?",
+    "goalDesc": "We will shape the app around it",
+    "goal": {
+      "manage_leads": "Manage existing leads",
+      "generate_leads": "Generate new leads",
+      "both": "Manage + Generate leads",
+      "productivity": "Improve sales productivity"
+    },
+    "businessTypeTitle": "What is your business type?",
+    "businessType": "Business Type",
+    "bt": {
+      "real_estate": "Real Estate / Property",
+      "finance": "Finance & Insurance",
+      "digital": "Digital Marketing Agency",
+      "consulting": "Consulting & Advisory",
+      "it": "IT / Software Services",
+      "manufacturing": "Manufacturing & Trading",
+      "retail": "Retail & E-commerce",
+      "training": "Training & Education",
+      "healthcare": "Healthcare & Pharma",
+      "automotive": "Automotive",
+      "business_services": "Business Services",
+      "travel": "Travel & Tourism",
+      "food": "Food & Beverage",
+      "other": "Other"
+    },
+    "categoryTitle": "Business Category",
+    "cat": {
+      "b2b": "B2B",
+      "b2c": "B2C",
+      "both": "B2B + B2C"
+    },
+    "roleTitle": "Your Role",
+    "role": {
+      "owner": "Owner / Founder",
+      "sales_manager": "Sales Manager",
+      "sales_rep": "Sales Rep",
+      "marketing": "Marketing",
+      "it_ops": "IT / Ops",
+      "other": "Other"
+    },
+    "teamSizeTitle": "Team Size",
+    "ts": {
+      "just_me": "Just me",
+      "2_5": "2 - 5",
+      "6_15": "6 - 15",
+      "16_50": "16 - 50",
+      "50_plus": "50+"
+    },
+    "aboutTitle": "About your business",
+    "aboutDesc": "This info can be used in your messages",
+    "website": "Website",
+    "about": "About",
+    "getStarted": "Start Using Nova Leads",
+    "skip": "Skip"
+  },
+  "profile": {
+    "title": "My Profile",
+    "desc": "Account & business info - used in message templates",
+    "saved": "Profile saved",
+    "account": "Account",
+    "businessInfo": "Business Info",
+    "emailReadOnly": "Email (login id)",
+    "personalMsgsHint": "{business} is used as the signature in messages"
+  },
+  "attachments": {
+    "title": "Attachments",
+    "add": "Add Attachment",
+    "uploading": "Uploading...",
+    "empty": "No attachments yet. Add photos, PDF, Excel or video.",
+    "tooBig": "File is too large (max 4 MB)",
+    "download": "Download",
+    "view": "View",
+    "deleted": "Attachment deleted",
+    "confirmDelete": "Delete again to confirm",
+    "kind": {
+      "image": "Image",
+      "pdf": "PDF",
+      "excel": "Excel",
+      "video": "Video",
+      "other": "File"
+    }
+  },
+  "sms": {
+    "send": "Send SMS",
+    "sentActivity": "SMS opened in phone SMS app"
   }
 }

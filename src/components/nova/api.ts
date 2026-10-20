@@ -87,6 +87,7 @@ export interface Lead {
   notes: string | null
   tags: string
   aiScore: number
+  favorite: boolean
   assignedToId: string | null
   assignedTo?: TeamMember | null
   nextFollowUpAt: string | null
@@ -141,6 +142,34 @@ export interface LeadMessage {
   content: string
   createdAt: string
   updatedAt: string
+}
+
+// Lead attachment (photo / pdf / excel / video) - metadata only
+export interface LeadAttachment {
+  id: string
+  leadId: string
+  name: string
+  mime: string
+  kind: string // image | pdf | excel | video | other
+  size: number
+  createdAt: string
+}
+
+// Logged-in account (signup / onboarding / profile)
+export interface Account {
+  id: string
+  name: string
+  email: string
+  phone: string | null
+  businessName: string | null
+  businessType: string | null
+  businessCategory: string | null
+  role: string | null
+  teamSize: string | null
+  goal: string | null
+  website: string | null
+  about: string | null
+  onboardingDone: boolean
 }
 
 export interface DashboardStats {
@@ -254,4 +283,13 @@ export function dateTimeLabel(iso: string | null | undefined): string {
   if (!iso) return ""
   const d = new Date(iso)
   return d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })
+}
+
+/** ISO -> local "YYYY-MM-DDTHH:mm" for datetime-local inputs (fixes UTC shift on edit) */
+export function toLocalInput(iso: string | null | undefined): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ""
+  const p = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }

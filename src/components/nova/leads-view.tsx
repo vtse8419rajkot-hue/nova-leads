@@ -2,13 +2,14 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { useI18n } from "@/i18n"
+import { toast } from "@/hooks/use-toast"
 import { api, LEAD_STATUSES, SOURCES, PRIORITIES, relTime, type Lead, type TeamMember } from "./api"
 import { StatusBadge, PriorityBadge, Avatar, EmptyState } from "./ui-bits"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
-  Search, Plus, UserPlus, Phone, MessageCircle, CalendarClock, Inbox, Loader2,
+  Search, Plus, Phone, MessageCircle, CalendarClock, Inbox, Loader2, Star,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -30,6 +31,7 @@ export function LeadsView({
   const [status, setStatus] = useState("all")
   const [source, setSource] = useState("all")
   const [priority, setPriority] = useState("all")
+  const [fav, setFav] = useState("all")
   const [sort, setSort] = useState("newest")
 
   const load = useCallback(async () => {
@@ -63,11 +65,23 @@ export function LeadsView({
     if (status !== "all") out = out.filter((l) => l.status === status)
     if (source !== "all") out = out.filter((l) => l.source === source)
     if (priority !== "all") out = out.filter((l) => l.priority === priority)
+    if (fav === "fav") out = out.filter((l) => l.favorite)
     if (sort === "oldest") out.sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt))
     else if (sort === "value") out.sort((a, b) => b.value - a.value)
     else out.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
     return out
-  }, [leads, search, status, source, priority, sort])
+  }, [leads, search, status, source, priority, fav, sort])
+
+  async function toggleFavorite(l: Lead) {
+    // optimistic update
+    setLeads((prev) => prev.map((x) => (x.id === l.id ? { ...x, favorite: !x.favorite } : x)))
+    try {
+      await api.patch(`/api/leads/${l.id}`, { favorite: !l.favorite })
+    } catch {
+      setLeads((prev) => prev.map((x) => (x.id === l.id ? { ...x, favorite: l.favorite } : x)))
+      toast({ title: t("common.error"), variant: "destructive" })
+    }
+  }
 
   const isFollowUpOverdue = (l: Lead) =>
     l.nextFollowUpAt && new Date(l.nextFollowUpAt) < new Date() && !["won", "lost"].includes(l.status)
@@ -113,6 +127,13 @@ export function LeadsView({
               ))}
             </SelectContent>
           </Select>
+          <Select value={fav} onValueChange={setFav}>
+            <SelectTrigger className="h-8 w-auto min-w-28 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("common.all")}</SelectItem>
+              <SelectItem value="fav">⭐ {t("leads.favorites")}</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={sort} onValueChange={setSort}>
             <SelectTrigger className="h-8 w-auto min-w-28 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -154,14 +175,34 @@ export function LeadsView({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{l.name}</p>
+                      <p className="flex items-center gap-1 truncate text-sm font-semibold">
+                        {l.favorite && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />}
+                        {l.name}
+                      </p>
                       <p className="truncate text-xs text-muted-foreground">
                         {l.company || t(`source.${l.source}`)}{l.city ? ` · ${l.city}` : ""}
                       </p>
                     </div>
-                    <span className="shrink-0 text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                      {l.value > 0 ? `₹${l.value.toLocaleString("en-IN")}` : ""}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                        {l.value > 0 ? `₹${l.value.toLocaleString("en-IN")}` : ""}
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-label={l.favorite ? t("leads.unfavorite") : t("leads.favorite")}
+                        className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+                          l.favorite
+                            ? "text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950"
+                            : "text-muted-foreground/40 hover:bg-amber-50 hover:text-amber-400 dark:hover:bg-amber-950"
+                        )}
+                        onClick={(e) => { e.stopPropagation(); toggleFavorite(l) }}
+                        onKeyDown={(e) => e.key === "Enter" && toggleFavorite(l)}
+                      >
+                        <Star className={cn("h-4 w-4", l.favorite && "fill-amber-400")} />
+                      </span>
+                    </div>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     <StatusBadge status={l.status} />

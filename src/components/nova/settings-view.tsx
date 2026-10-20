@@ -19,6 +19,7 @@ import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { AlarmSettingsCard } from "./alarm-settings-card"
 import { TemplateSettingsCard } from "./template-settings-card"
+import { ProfileSettingsCard } from "./profile-settings-card"
 
 type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
 
@@ -30,7 +31,6 @@ export function SettingsView() {
   const [isInstalled, setIsInstalled] = useState(false)
   const [clearOpen, setClearOpen] = useState(false)
   const [clearLoading, setClearLoading] = useState(false)
-  const [businessName, setBusinessName] = useState("")
 
   useEffect(() => {
     setMounted(true)
@@ -42,18 +42,8 @@ export function SettingsView() {
     // iOS standalone check
     const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as unknown as { standalone?: boolean }).standalone === true
     setIsInstalled(standalone)
-    api.get<Record<string, string>>("/api/settings").then((s) => setBusinessName(s.businessName || "")).catch(() => {})
     return () => window.removeEventListener("beforeinstallprompt", handler)
   }, [])
-
-  async function saveBusinessName(v: string) {
-    setBusinessName(v)
-    try {
-      await api.post("/api/settings", { businessName: v })
-    } catch {
-      // silent
-    }
-  }
 
   async function installApp() {
     if (!installEvt) return
@@ -88,6 +78,9 @@ export function SettingsView() {
 
   return (
     <div className="space-y-5 nova-anim">
+      {/* My Profile (account + business info) */}
+      <ProfileSettingsCard />
+
       {/* Language */}
       <section>
         <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold">
@@ -139,13 +132,6 @@ export function SettingsView() {
 
       {/* Message Templates */}
       <TemplateSettingsCard />
-
-      {/* Business name */}
-      <section>
-        <h3 className="mb-2 text-sm font-semibold">{t("settings.businessName")}</h3>
-        <p className="mb-2.5 text-xs text-muted-foreground">{t("settings.businessNameDesc")}</p>
-        <Input value={businessName} onChange={(e) => saveBusinessName(e.target.value)} placeholder="My Business" />
-      </section>
 
       {/* Install */}
       <section>

@@ -23,6 +23,39 @@ model TeamMember {
   tasks     Task[]
 }
 
+// ============ ACCOUNT (login / signup / onboarding) ============
+model Account {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String // scrypt hex + salt
+  businessName String?
+  businessType String? // Real Estate, Finance & Insurance, ... (HelloLeads-style list)
+  businessCategory String? // b2b | b2c | both
+  role         String? // owner | sales_manager | sales_rep | marketing | it_ops | other
+  teamSize     String? // just_me | 2_5 | 6_15 | 16_50 | 50_plus
+  goal         String? // manage_leads | generate_leads | both | productivity
+  website      String?
+  about        String?
+  onboardingDone Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ============ LEAD ATTACHMENTS (photo / pdf / excel / video) ============
+model LeadAttachment {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  name      String   // original file name
+  mime      String   // e.g. image/jpeg, application/pdf
+  kind      String   // image | pdf | excel | video | other
+  size      Int      @default(0) // bytes
+  data      String   // base64 payload (stored in DB - works on SQLite & Postgres)
+  createdAt DateTime @default(now())
+}
+
 // ============ LEADS ============
 model Lead {
   id          String   @id @default(cuid())
@@ -41,6 +74,7 @@ model Lead {
   notes       String?
   tags        String   @default("") // comma separated
   aiScore     Int      @default(50) // 0-100 AI lead score
+  favorite    Boolean  @default(false) // starred / favourite lead
   assignedToId String?
   assignedTo  TeamMember? @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
   nextFollowUpAt DateTime?
@@ -53,6 +87,7 @@ model Lead {
   tasks       Task[]
   quotes      Quote[]
   messages    LeadMessage[]
+  attachments LeadAttachment[]
 }
 
 // ============ ACTIVITY TIMELINE ============

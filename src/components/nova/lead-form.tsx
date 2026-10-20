@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Sparkles } from "lucide-react"
-import { api, SOURCES, PRIORITIES, LEAD_STATUSES, type Lead, type TeamMember } from "./api"
+import { api, SOURCES, PRIORITIES, LEAD_STATUSES, toLocalInput, type Lead, type TeamMember } from "./api"
 
 export function LeadForm({
   open,
@@ -69,7 +69,8 @@ export function LeadForm({
         notes: lead?.notes || "",
         tags: lead?.tags || "",
         assignedToId: lead?.assignedToId || "",
-        nextFollowUpAt: lead?.nextFollowUpAt ? new Date(lead.nextFollowUpAt).toISOString().slice(0, 16) : "",
+        // Use LOCAL time for the datetime-local input (toISOString shifted by TZ)
+        nextFollowUpAt: toLocalInput(lead?.nextFollowUpAt),
       })
     }
   }, [open, lead, defaultStatus])

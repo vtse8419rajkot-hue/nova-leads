@@ -2,7 +2,9 @@
 
 import React, { useCallback, useEffect, useState } from "react"
 import { useI18n, type LanguageCode } from "@/i18n"
-import { api, type Lead, type TeamMember } from "./api"
+import { api, type Account, type Lead, type TeamMember } from "./api"
+import { AuthOnboarding } from "./auth-onboarding"
+import { AuthContext } from "./auth-context"
 import { DashboardView } from "./dashboard-view"
 import { LeadsView } from "./leads-view"
 import { PipelineView } from "./pipeline-view"
@@ -22,7 +24,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button"
 import {
   LayoutDashboard, Users, KanbanSquare, ClipboardList, Receipt,
-  Contact, Package, UsersRound, BarChart3, Settings, MoreHorizontal, Plus, WifiOff, Globe,
+  Contact, Package, UsersRound, BarChart3, Settings, MoreHorizontal, Plus, WifiOff, Globe, Loader2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LANGUAGES } from "@/i18n"
@@ -116,6 +118,9 @@ function LanguagePicker() {
 
 export function NovaApp() {
   const { t } = useI18n()
+  // Auth state: check session before showing the app
+  const [authState, setAuthState] = useState<"loading" | "anon" | "onboarding" | "ready">("loading")
+  const [me, setMe] = useState<Account | null>(null)
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window !== "undefined") {
       const t = new URLSearchParams(window.location.search).get("tab")
@@ -140,6 +145,24 @@ export function NovaApp() {
   })
   const [quotePrefill, setQuotePrefill] = useState<Lead | null>(null)
   const [dataChanged, setDataChanged] = useState(0)
+
+  // Session check on first load (login / signup / onboarding gate)
+  useEffect(() => {
+    let cancelled = false
+    api
+      .get<Account>("/api/auth/me")
+      .then((acc) => {
+        if (cancelled) return
+        setMe(acc)
+        setAuthState(acc.onboardingDone ? "ready" : "onboarding")
+      })
+      .catch(() => {
+        if (!cancelled) setAuthState("anon")
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Alarm notification tap -> open the lead directly
   useEffect(() => {
@@ -210,11 +233,42 @@ export function NovaApp() {
     settings: "nav.settings",
   }
 
+  // Splash while the session is being checked
+  if (authState === "loading") {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-14 w-14 animate-pulse items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-xl font-black text-white shadow-lg">
+            N
+          </div>
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    )
+  }
+
+  // Not logged in OR onboarding not finished -> auth / wizard screen
+  if (authState === "anon" || authState === "onboarding" || !me) {
+    return (
+      <AuthOnboarding
+        initialMode={authState === "onboarding" ? "wizard" : "auth"}
+        account={me}
+        onAuthenticated={(acc) => {
+          setMe(acc)
+          setAuthState(acc.onboardingDone ? "ready" : "onboarding")
+          refresh()
+          setDataChanged((d) => d + 1)
+        }}
+      />
+    )
+  }
+
   return (
     <AlarmProvider>
     <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-background">
       <SWRegister />
       <OfflineBanner />
+      <AuthContext.Provider value={{ account: me, onAccountChange: setMe }}>
 
       {/* Header */}
       <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur-lg pt-safe">
@@ -364,6 +418,7 @@ export function NovaApp() {
       {/* Alarm system: full-screen alarm + first-open permission ask */}
       <AlarmOverlay />
       <AlarmPermissionDialog />
+      </AuthContext.Provider>
     </div>
     </AlarmProvider>
   )

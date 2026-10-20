@@ -8,6 +8,7 @@ import {
   type Quote, type Product, type Lead, type Contact,
 } from "./api"
 import { EmptyState } from "./ui-bits"
+import { useWhatsApp } from "./whatsapp-send"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -50,6 +51,7 @@ export function QuotesView({
   onPrefillConsumed: () => void
 }) {
   const { t } = useI18n()
+  const wa = useWhatsApp()
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [typeFilter, setTypeFilter] = useState("all")
   const [loading, setLoading] = useState(true)
@@ -131,8 +133,7 @@ export function QuotesView({
     if (q.discount > 0) lines.push(`${t("quotes.discount")}: -${formatMoneyFull(q.discount)}`)
     lines.push(`*${t("quotes.total")}: ${formatMoneyFull(q.total)}*`)
     if (q.validUntil) lines.push(`\n${t("quotes.validUntil")}: ${dateLabel(q.validUntil)}`)
-    const url = `https://wa.me/91${q.customerPhone.replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(lines.join("\n"))}`
-    window.open(url, "_blank")
+    wa.send(q.customerPhone, lines.join("\n"))
   }
 
   return (

@@ -28,7 +28,9 @@ import {
   type Lead, type TeamMember, type Task, type Quote, type MessageTemplate, type LeadMessage, type LeadAttachment,
 } from "./api"
 import { StatusBadge, PriorityBadge, Avatar, STATUS_DOT, EmptyState } from "./ui-bits"
-import { LeadForm } from "./lead-form"
+import { LeadForm, safeIso } from "./lead-form"
+import { FollowUpField } from "./follow-up-picker"
+import { useWhatsApp } from "./whatsapp-send"
 
 const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
   call: <Phone className="h-3.5 w-3.5" />,
@@ -73,6 +75,7 @@ export function LeadDetail({
   onCreateQuote: (lead: Lead) => void
 }) {
   const { t, lang } = useI18n()
+  const wa = useWhatsApp()
   const [lead, setLead] = useState<Lead | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [quotes, setQuotes] = useState<Quote[]>([])
@@ -199,7 +202,10 @@ export function LeadDetail({
   }
 
   async function scheduleFollowUp() {
-    if (!followUpAt || !taskTitle.trim()) {
+    // The field may display the lead's existing follow-up without the user
+    // having picked a new one - fall back to it so Save always works.
+    const iso = safeIso(followUpAt) || (followUpAt ? null : safeIso(toLocalInput(lead?.nextFollowUpAt)))
+    if (!iso || !taskTitle.trim()) {
       toast({ title: t("common.required"), variant: "destructive" })
       return
     }
@@ -208,18 +214,18 @@ export function LeadDetail({
         title: taskTitle,
         leadId,
         type: "follow_up",
-        dueAt: new Date(followUpAt).toISOString(),
+        dueAt: iso,
       })
       // Also store on the lead so the selected date/time SHOWS on the lead
       // card, info card and fills the {followup} variable in messages.
-      await api.patch(`/api/leads/${leadId}`, { nextFollowUpAt: new Date(followUpAt).toISOString() })
+      await api.patch(`/api/leads/${leadId}`, { nextFollowUpAt: iso })
       setTaskTitle("")
       setFollowUpAt("")
       await load()
       onChanged()
       toast({ title: t("common.saved") })
-    } catch {
-      toast({ title: t("common.error"), variant: "destructive" })
+    } catch (e) {
+      toast({ title: t("common.error"), description: e instanceof Error ? e.message : undefined, variant: "destructive" })
     }
   }
 
@@ -357,16 +363,16 @@ export function LeadDetail({
       toast({ title: t("templates.emptyContent"), variant: "destructive" })
       return
     }
-    window.open(waLink(msgText), "_blank")
+    if (!lead) return
     const tp = templates.find((x) => x.id === selectedTid)
     const pm = leadMsgs.find((x) => x.id === selectedPid)
-    addActivity("whatsapp", {
-      title: "WhatsApp",
-      notes: pm
-        ? `${t("personal.sentActivity")}: ${pm.name}`
-        : tp
-          ? `${t("templates.sentActivity")}: ${tp.name}`
-          : msgText.slice(0, 120),
+    const notes = pm
+      ? `${t("personal.sentActivity")}: ${pm.name}`
+      : tp
+        ? `${t("templates.sentActivity")}: ${tp.name}`
+        : msgText.slice(0, 120)
+    wa.send(lead.phone, msgText, () => {
+      addActivity("whatsapp", { title: "WhatsApp", notes })
     })
   }
 
@@ -454,9 +460,6 @@ export function LeadDetail({
     toast({ title: t("ai.copied") })
   }
 
-  const waLink = (msg?: string) =>
-    `https://wa.me/91${lead?.phone.replace(/\D/g, "").slice(-10)}${msg ? `?text=${encodeURIComponent(msg)}` : ""}`
-
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
@@ -527,7 +530,7 @@ export function LeadDetail({
                     <Phone className="h-4 w-4 text-primary" />
                     <span className="text-[10px]">{t("common.call")}</span>
                   </Button>
-                  <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={() => window.open(waLink(msgText.trim() || undefined), "_blank")}>
+                  <Button variant="outline" className="flex h-auto flex-col gap-1 py-2.5" onClick={() => wa.send(lead.phone, msgText.trim(), () => addActivity("whatsapp"))}>
                     <MessageCircle className="h-4 w-4 text-emerald-600" />
                     <span className="text-[10px]">{t("common.whatsapp")}</span>
                   </Button>
@@ -810,7 +813,7 @@ export function LeadDetail({
                 <div className="space-y-2 rounded-xl border p-4">
                   <p className="text-sm font-semibold">{t("leads.scheduleFollowUp")}</p>
                   <Input placeholder={t("tasks.taskTitle")} value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} />
-                  <Input type="datetime-local" value={followUpAt || toLocalInput(lead.nextFollowUpAt)} onChange={(e) => setFollowUpAt(e.target.value)} />
+                  <FollowUpField value={followUpAt || toLocalInput(lead.nextFollowUpAt)} onChange={(v) => setFollowUpAt(v)} placeholder={t("fu.placeholder")} />
                   <Button size="sm" className="w-full" onClick={scheduleFollowUp}>{t("common.save")}</Button>
                 </div>
 

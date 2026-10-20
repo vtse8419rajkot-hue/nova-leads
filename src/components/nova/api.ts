@@ -219,21 +219,42 @@ async function handle<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/** fetch with one automatic retry on transient server errors (5xx) or network
+ *  failures - helps on flaky mobile networks / cold serverless starts */
+async function fetchRetry(input: string, init?: RequestInit, attempt = 0): Promise<Response> {
+  try {
+    const res = await fetch(input, init)
+    if (res.status >= 500 && attempt < 1) {
+      await sleep(900)
+      return fetchRetry(input, init, attempt + 1)
+    }
+    return res
+  } catch (err) {
+    if (attempt < 1) {
+      await sleep(900)
+      return fetchRetry(input, init, attempt + 1)
+    }
+    throw err
+  }
+}
+
 export const api = {
-  get: <T>(url: string) => fetch(url).then((r) => handle<T>(r)),
+  get: <T>(url: string) => fetchRetry(url).then((r) => handle<T>(r)),
   post: <T>(url: string, body?: unknown) =>
-    fetch(url, {
+    fetchRetry(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     }).then((r) => handle<T>(r)),
   patch: <T>(url: string, body: unknown) =>
-    fetch(url, {
+    fetchRetry(url, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then((r) => handle<T>(r)),
-  del: <T>(url: string) => fetch(url, { method: "DELETE" }).then((r) => handle<T>(r)),
+  del: <T>(url: string) => fetchRetry(url, { method: "DELETE" }).then((r) => handle<T>(r)),
 }
 
 export const LEAD_STATUSES = ["new", "contacted", "in_progress", "quotation", "negotiation", "won", "lost"] as const

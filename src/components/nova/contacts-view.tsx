@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react"
 import { useI18n } from "@/i18n"
 import { toast } from "@/hooks/use-toast"
 import { api, formatMoneyFull, type Contact } from "./api"
+import { useWhatsApp } from "./whatsapp-send"
 import { EmptyState } from "./ui-bits"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils"
 
 export function ContactsView({ refreshKey }: { refreshKey: number }) {
   const { t } = useI18n()
+  const wa = useWhatsApp()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -151,8 +153,8 @@ export function ContactsView({ refreshKey }: { refreshKey: number }) {
                     tabIndex={0}
                     aria-label={t("common.whatsapp")}
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-400"
-                    onClick={() => window.open(`https://wa.me/91${c.phone.replace(/\D/g, "").slice(-10)}`, "_blank")}
-                    onKeyDown={(e) => e.key === "Enter" && window.open(`https://wa.me/91${c.phone.replace(/\D/g, "").slice(-10)}`, "_blank")}
+                    onClick={() => wa.send(c.phone, "")}
+                    onKeyDown={(e) => e.key === "Enter" && wa.send(c.phone, "")}
                   >
                     <MessageCircle className="h-3.5 w-3.5" />
                   </span>

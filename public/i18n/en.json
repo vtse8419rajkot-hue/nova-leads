@@ -56,7 +56,8 @@
     "view": "View",
     "details": "Details",
     "more": "More",
-    "none": "None"
+    "none": "None",
+    "done": "Done"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -633,5 +634,37 @@
   "sms": {
     "send": "Send SMS",
     "sentActivity": "SMS opened in phone SMS app"
+  },
+  "fu": {
+    "quick": "Quick picks",
+    "pickDate": "Pick a date",
+    "pickTime": "Pick a time",
+    "custom": "Custom date & time",
+    "placeholder": "Select date & time"
+  },
+  "wa": {
+    "title": "Send via WhatsApp",
+    "desc": "Which WhatsApp should open?",
+    "business": "WhatsApp Business",
+    "businessDesc": "Open in the Business app",
+    "normal": "WhatsApp",
+    "normalDesc": "Open in the normal WhatsApp app",
+    "always": "Always use this app?",
+    "businessShort": "Business",
+    "normalShort": "Normal",
+    "prefTitle": "WhatsApp app",
+    "prefDesc": "Which WhatsApp app to use when sending messages?",
+    "prefAsk": "Ask every time"
+  },
+  "switch": {
+    "title": "Switch Account",
+    "desc": "Switch between business accounts saved on this device - each has its own leads & data",
+    "current": "Current",
+    "go": "Open",
+    "remove": "Remove from list",
+    "useSavedAccount": "Use a saved account",
+    "open": "Switch",
+    "addAccount": "Add a business account",
+    "addAccountDesc": "Creates a separate business - leads & data stay fully separate. You can switch anytime."
   }
 }

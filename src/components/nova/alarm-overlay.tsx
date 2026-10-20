@@ -4,6 +4,7 @@ import React, { useState } from "react"
 import { useI18n } from "@/i18n"
 import { useAlarm, type ActiveAlarm } from "@/hooks/use-alarm-engine"
 import { formatMoney, dateTimeLabel } from "./api"
+import { useWhatsApp } from "./whatsapp-send"
 import { cn } from "@/lib/utils"
 import {
   BellRing, Phone, MessageCircle, Clock, CheckCheck, X, User,
@@ -61,6 +62,7 @@ const SNOOZE_OPTIONS = [5, 10, 30, 60]
 export function AlarmOverlay() {
   const { t } = useI18n()
   const { active, stopAlarm, snoozeAlarm, completeAlarm } = useAlarm()
+  const wa = useWhatsApp()
   const [busy, setBusy] = useState(false)
 
   if (!active) return null
@@ -86,9 +88,6 @@ export function AlarmOverlay() {
   }
 
   const telHref = lead?.phone ? `tel:${lead.phone.replace(/[^\d+]/g, "")}` : "#"
-  const waHref = lead?.phone
-    ? `https://wa.me/${lead.phone.replace(/[^\d]/g, "")}`
-    : "#"
 
   return (
     <div
@@ -173,14 +172,13 @@ export function AlarmOverlay() {
               >
                 <Phone className="h-4 w-4" /> {lead.phone}
               </a>
-              <a
-                href={waHref}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={() => lead && wa.send(lead.phone, "")}
                 className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-3 py-3 text-sm font-bold text-white shadow-lg transition-transform active:scale-95"
               >
                 <MessageCircle className="h-4 w-4" /> {t("alarm.whatsapp")}
-              </a>
+              </button>
             </div>
 
             {/* chips row */}

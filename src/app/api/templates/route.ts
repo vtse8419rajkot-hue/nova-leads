@@ -1,5 +1,7 @@
+import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { jsonOk } from "@/lib/api-utils"
+import { requireAccount } from "@/lib/tenant"
 
 // Starter WhatsApp templates created once on first use (not demo data -
 // these are ready-to-use defaults the user can edit or delete).
@@ -27,26 +29,32 @@ const STARTERS = [
   },
 ]
 
-// Seed the starter templates exactly once (guarded by a Setting flag so
-// they do NOT come back after the user deletes them on purpose).
-async function ensureStarterTemplates() {
+// Seed the starter templates exactly once per account (guarded by a Setting
+// flag so they do NOT come back after the user deletes them on purpose).
+async function ensureStarterTemplates(accountId: string) {
   try {
-    const flag = await db.setting.findUnique({ where: { key: "templatesSeeded" } })
+    const key = `templatesSeeded:${accountId}`
+    const flag = await db.setting.findUnique({ where: { key } })
     if (flag) return
-    const count = await db.messageTemplate.count()
+    const count = await db.messageTemplate.count({ where: { accountId } })
     if (count === 0) {
-      await db.messageTemplate.createMany({ data: STARTERS })
+      await db.messageTemplate.createMany({ data: STARTERS.map((s) => ({ ...s, accountId })) })
     }
-    await db.setting.create({ data: { key: "templatesSeeded", value: "1" } })
+    await db.setting.create({ data: { key, value: "1" } })
   } catch {
     // concurrent requests may race for the flag - safe to ignore
   }
 }
 
 // GET /api/templates - list all message templates (default first)
-export async function GET() {
-  await ensureStarterTemplates()
+export async function GET(req: NextRequest) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
+  const { account } = auth
+
+  await ensureStarterTemplates(account.id)
   const templates = await db.messageTemplate.findMany({
+    where: { accountId: account.id },
     orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
   })
   return jsonOk(templates)

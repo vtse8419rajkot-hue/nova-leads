@@ -20,6 +20,7 @@ import { LeadDetail } from "./lead-detail"
 import { AlarmOverlay } from "./alarm-overlay"
 import { AlarmPermissionDialog } from "./alarm-permission-dialog"
 import { AlarmProvider } from "@/hooks/use-alarm-engine"
+import { WhatsAppProvider } from "./whatsapp-send"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import {
@@ -265,6 +266,7 @@ export function NovaApp() {
 
   return (
     <AlarmProvider>
+    <WhatsAppProvider>
     <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-background">
       <SWRegister />
       <OfflineBanner />
@@ -420,6 +422,7 @@ export function NovaApp() {
       <AlarmPermissionDialog />
       </AuthContext.Provider>
     </div>
+    </WhatsAppProvider>
     </AlarmProvider>
   )
 }

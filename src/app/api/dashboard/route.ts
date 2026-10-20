@@ -1,8 +1,14 @@
+import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { jsonOk } from "@/lib/api-utils"
+import { requireAccount } from "@/lib/tenant"
 
 // GET /api/dashboard - all dashboard stats in one shot
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
+  const { account } = auth
+
   const now = new Date()
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
@@ -22,31 +28,32 @@ export async function GET() {
     upcomingTasks,
     allLeadsForPipeline,
   ] = await Promise.all([
-    db.lead.count(),
-    db.lead.count({ where: { status: "new" } }),
-    db.lead.count({ where: { priority: "hot", status: { notIn: ["won", "lost"] } } }),
-    db.lead.count({ where: { status: "won" } }),
-    db.lead.count({ where: { status: "lost" } }),
-    db.lead.findMany({ where: { status: { notIn: ["won", "lost"] } }, select: { value: true } }),
-    db.lead.count({ where: { status: "won", createdAt: { gte: monthStart } } }),
-    db.task.count({ where: { status: "pending", dueAt: { gte: todayStart, lt: todayEnd } } }),
-    db.task.count({ where: { status: "pending", dueAt: { lt: todayStart } } }),
+    db.lead.count({ where: { accountId: account.id } }),
+    db.lead.count({ where: { accountId: account.id, status: "new" } }),
+    db.lead.count({ where: { accountId: account.id, priority: "hot", status: { notIn: ["won", "lost"] } } }),
+    db.lead.count({ where: { accountId: account.id, status: "won" } }),
+    db.lead.count({ where: { accountId: account.id, status: "lost" } }),
+    db.lead.findMany({ where: { accountId: account.id, status: { notIn: ["won", "lost"] } }, select: { value: true } }),
+    db.lead.count({ where: { accountId: account.id, status: "won", createdAt: { gte: monthStart } } }),
+    db.task.count({ where: { accountId: account.id, status: "pending", dueAt: { gte: todayStart, lt: todayEnd } } }),
+    db.task.count({ where: { accountId: account.id, status: "pending", dueAt: { lt: todayStart } } }),
     db.lead.findMany({
+      where: { accountId: account.id },
       orderBy: { createdAt: "desc" },
       take: 6,
       include: { assignedTo: true },
     }),
     db.task.findMany({
-      where: { status: "pending", dueAt: { lt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) } },
+      where: { accountId: account.id, status: "pending", dueAt: { lt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) } },
       orderBy: { dueAt: "asc" },
       take: 6,
       include: { lead: true },
     }),
-    db.lead.findMany({ select: { status: true, value: true } }),
+    db.lead.findMany({ where: { accountId: account.id }, select: { status: true, value: true } }),
   ])
 
   const revenueWon = await db.lead.aggregate({
-    where: { status: "won" },
+    where: { accountId: account.id, status: "won" },
     _sum: { value: true },
   })
 

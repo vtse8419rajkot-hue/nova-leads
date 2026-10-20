@@ -1,16 +1,21 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { jsonOk, readBody, toStr, toDate, jsonError } from "@/lib/api-utils"
+import { requireAccount } from "@/lib/tenant"
 
 // GET /api/tasks - with tab filter: overdue | today | upcoming | completed
 export async function GET(req: NextRequest) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
+  const { account } = auth
+
   const sp = req.nextUrl.searchParams
   const tab = sp.get("tab") || "all"
   const now = new Date()
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
 
-  const where: Record<string, unknown> = {}
+  const where: Record<string, unknown> = { accountId: account.id }
   if (tab === "overdue") {
     where.status = "pending"
     where.dueAt = { lt: todayStart }
@@ -34,6 +39,10 @@ export async function GET(req: NextRequest) {
 
 // POST /api/tasks
 export async function POST(req: NextRequest) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
+  const { account } = auth
+
   const body = await readBody(req)
   const title = toStr(body.title).trim()
   const dueAt = toDate(body.dueAt)
@@ -41,6 +50,7 @@ export async function POST(req: NextRequest) {
 
   const task = await db.task.create({
     data: {
+      accountId: account.id,
       title,
       leadId: toStr(body.leadId) || null,
       type: toStr(body.type, "follow_up"),

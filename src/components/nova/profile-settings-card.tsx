@@ -5,7 +5,9 @@ import { useI18n } from "@/i18n"
 import { toast } from "@/hooks/use-toast"
 import { api, type Account } from "./api"
 import { useAuth } from "./auth-context"
-import { BUSINESS_TYPES, BUSINESS_CATEGORIES, ROLES, TEAM_SIZES } from "./auth-onboarding"
+import { BUSINESS_TYPES, BUSINESS_CATEGORIES, ROLES, TEAM_SIZES, VaultRow } from "./auth-onboarding"
+import { listVault } from "@/lib/account-vault"
+import { getWaPref, setWaPref, type WaPref } from "./whatsapp-send"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog"
-import { Loader2, UserCircle2, LogOut, Save } from "lucide-react"
+import { Loader2, UserCircle2, LogOut, Save, UsersRound, MessageCircle } from "lucide-react"
 
 export function ProfileSettingsCard() {
   const { t } = useI18n()
@@ -33,6 +35,13 @@ export function ProfileSettingsCard() {
   const [saving, setSaving] = useState(false)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [switchOpen, setSwitchOpen] = useState(false)
+  const [waPref, setWaPrefState] = useState<WaPref>("ask")
+  const vaultAccounts = listVault()
+
+  useEffect(() => {
+    setWaPrefState(getWaPref())
+  }, [])
 
   useEffect(() => {
     setForm({
@@ -80,6 +89,16 @@ export function ProfileSettingsCard() {
     }
   }
 
+  async function addAnotherAccount() {
+    try {
+      await api.post("/api/auth/logout")
+    } catch {
+      /* ignore */
+    }
+    window.location.href = "/?action=add-account"
+    window.location.reload()
+  }
+
   const selCls = "w-full"
 
   return (
@@ -88,6 +107,37 @@ export function ProfileSettingsCard() {
         <UserCircle2 className="h-4 w-4 text-primary" /> {t("profile.title")}
       </h3>
       <p className="mb-3 text-xs text-muted-foreground">{t("profile.desc")}</p>
+
+      {/* Switch Account (HelloLeads-style multiple business accounts) */}
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-dashed border-primary/40 p-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-sm font-semibold">
+            <UsersRound className="h-4 w-4 text-primary" /> {t("switch.title")}
+          </p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {account.businessName || account.name} · {account.email}
+          </p>
+        </div>
+        <Button size="sm" variant="outline" className="shrink-0" onClick={() => setSwitchOpen(true)}>
+          {t("switch.open")}
+        </Button>
+      </div>
+
+      {/* WhatsApp app preference */}
+      <div className="mb-4 rounded-xl border p-3">
+        <p className="mb-1 flex items-center gap-1.5 text-sm font-semibold">
+          <MessageCircle className="h-4 w-4 text-primary" /> {t("wa.prefTitle")}
+        </p>
+        <p className="mb-2 text-[11px] text-muted-foreground">{t("wa.prefDesc")}</p>
+        <Select value={waPref} onValueChange={(v) => { setWaPrefState(v as WaPref); setWaPref(v as WaPref) }}>
+          <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ask">{t("wa.prefAsk")}</SelectItem>
+            <SelectItem value="normal">{t("wa.normal")}</SelectItem>
+            <SelectItem value="business">{t("wa.business")}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Account */}
       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t("profile.account")}</p>
@@ -188,6 +238,25 @@ export function ProfileSettingsCard() {
           <LogOut className="me-2 h-4 w-4" /> {t("auth.logout")}
         </Button>
       </div>
+
+      {/* Switch account dialog */}
+      <Dialog open={switchOpen} onOpenChange={setSwitchOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">{t("switch.title")}</DialogTitle>
+            <DialogDescription>{t("switch.desc")}</DialogDescription>
+          </DialogHeader>
+          <div className="nova-scroll max-h-64 space-y-2 overflow-y-auto">
+            {vaultAccounts.map((v) => (
+              <VaultRow key={v.id} entry={v} currentId={account.id} />
+            ))}
+          </div>
+          <Button variant="outline" className="w-full" onClick={addAnotherAccount}>
+            <UsersRound className="me-2 h-4 w-4" /> {t("switch.addAccount")}
+          </Button>
+          <p className="text-center text-[11px] text-muted-foreground">{t("switch.addAccountDesc")}</p>
+        </DialogContent>
+      </Dialog>
 
       {/* Logout confirm */}
       <Dialog open={logoutOpen} onOpenChange={setLogoutOpen}>

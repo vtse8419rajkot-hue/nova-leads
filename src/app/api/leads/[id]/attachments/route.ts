@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { jsonError, jsonOk } from "@/lib/api-utils"
+import { requireAccount } from "@/lib/tenant"
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -19,8 +20,12 @@ function detectKind(name: string, mime: string): string {
 }
 
 // GET /api/leads/[id]/attachments - list (metadata only)
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
   const { id } = await params
+  const lead = await db.lead.findFirst({ where: { id, accountId: auth.account.id }, select: { id: true } })
+  if (!lead) return jsonError("Lead not found", 404)
   const rows = await db.leadAttachment.findMany({
     where: { leadId: id },
     orderBy: { createdAt: "desc" },
@@ -31,8 +36,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 // POST /api/leads/[id]/attachments - upload (multipart form: file)
 export async function POST(req: NextRequest, { params }: Params) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
   const { id } = await params
-  const lead = await db.lead.findUnique({ where: { id }, select: { id: true } })
+  const lead = await db.lead.findFirst({ where: { id, accountId: auth.account.id }, select: { id: true } })
   if (!lead) return jsonError("Lead not found", 404)
 
   let file: File | null = null

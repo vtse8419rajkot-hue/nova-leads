@@ -1,11 +1,17 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { jsonOk, readBody, toStr, toNum, toDate, jsonError } from "@/lib/api-utils"
+import { requireAccount } from "@/lib/tenant"
 
 // GET /api/quotes
 export async function GET(req: NextRequest) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
+  const { account } = auth
+
   const type = req.nextUrl.searchParams.get("type") || ""
-  const where: Record<string, unknown> = type ? { type } : {}
+  const where: Record<string, unknown> = { accountId: account.id }
+  if (type) where.type = type
   const quotes = await db.quote.findMany({
     where,
     include: { items: true, lead: true, contact: true },
@@ -24,6 +30,10 @@ interface ItemInput {
 
 // POST /api/quotes - create quote with items
 export async function POST(req: NextRequest) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
+  const { account } = auth
+
   const body = await readBody(req)
   const customerName = toStr(body.customerName).trim()
   const customerPhone = toStr(body.customerPhone).trim()
@@ -61,13 +71,26 @@ export async function POST(req: NextRequest) {
   const mm = String(now.getMonth() + 1).padStart(2, "0")
   const quoteNo = `NQ-${yy}${mm}-${String(count + 1).padStart(4, "0")}`
 
+  // Only link lead/contact that belong to this account - otherwise store null
+  let leadId: string | null = toStr(body.leadId) || null
+  if (leadId) {
+    const owned = await db.lead.findFirst({ where: { id: leadId, accountId: account.id }, select: { id: true } })
+    if (!owned) leadId = null
+  }
+  let contactId: string | null = toStr(body.contactId) || null
+  if (contactId) {
+    const owned = await db.contact.findFirst({ where: { id: contactId, accountId: account.id }, select: { id: true } })
+    if (!owned) contactId = null
+  }
+
   const quote = await db.quote.create({
     data: {
+      accountId: account.id,
       quoteNo,
       type: toStr(body.type, "quotation"),
       status: toStr(body.status, "draft"),
-      leadId: toStr(body.leadId) || null,
-      contactId: toStr(body.contactId) || null,
+      leadId,
+      contactId,
       customerName,
       customerPhone,
       customerAddress: toStr(body.customerAddress) || null,

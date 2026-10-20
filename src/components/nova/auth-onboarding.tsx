@@ -4,12 +4,17 @@ import React, { useState } from "react"
 import { useI18n, LANGUAGES, type LanguageCode } from "@/i18n"
 import { toast } from "@/hooks/use-toast"
 import { api, type Account } from "./api"
+import { saveToVault, updateVaultAccount, listVault, switchToAccount, type VaultEntry } from "@/lib/account-vault"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, Sparkles, Target, Building2, Globe, UserCheck, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react"
+import { Loader2, Sparkles, Target, Building2, Globe, UserCheck, ArrowRight, ArrowLeft, CheckCircle2, UsersRound, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog"
+import { removeFromVault } from "@/lib/account-vault"
 
 export const BUSINESS_TYPES = [
   "real_estate", "finance", "digital", "consulting", "it", "manufacturing",
@@ -23,6 +28,64 @@ export const TEAM_SIZES = ["just_me", "2_5", "6_15", "16_50", "50_plus"] as cons
 export const GOALS = ["manage_leads", "generate_leads", "both", "productivity"] as const
 
 type Mode = "auth" | "wizard"
+
+/** One saved account row - shared by the auth screen and Settings switcher. */
+export function VaultRow({ entry, currentId }: { entry: VaultEntry; currentId?: string }) {
+  const { t } = useI18n()
+  const [busy, setBusy] = useState(false)
+  const isCurrent = entry.id === currentId
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-xl border p-3",
+        isCurrent ? "border-primary/60 bg-primary/5" : "bg-card"
+      )}
+    >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-sm font-black text-white">
+        {(entry.businessName || entry.name || "N").charAt(0).toUpperCase()}
+      </div>
+      <button
+        type="button"
+        className="min-w-0 flex-1 text-start"
+        disabled={isCurrent || busy}
+        onClick={async () => {
+          setBusy(true)
+          try {
+            await switchToAccount(entry)
+          } catch (e) {
+            toast({ title: e instanceof Error ? e.message : t("common.error"), variant: "destructive" })
+            setBusy(false)
+          }
+        }}
+      >
+        <span className="block truncate text-sm font-semibold">
+          {entry.businessName || entry.name}
+        </span>
+        <span className="block truncate text-[11px] text-muted-foreground">{entry.email}</span>
+      </button>
+      {isCurrent ? (
+        <span className="flex items-center gap-1 text-[11px] font-semibold text-primary">
+          <CheckCircle2 className="h-3.5 w-3.5" /> {t("switch.current")}
+        </span>
+      ) : (
+        <span className="flex items-center gap-1">
+          <span className="text-[11px] font-semibold text-primary">{busy ? "..." : t("switch.go")}</span>
+          <button
+            type="button"
+            aria-label={t("switch.remove")}
+            className="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-destructive"
+            onClick={() => {
+              removeFromVault(entry.id)
+              window.location.reload()
+            }}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </span>
+      )}
+    </div>
+  )
+}
 
 function Brand({ subtitle }: { subtitle?: string }) {
   const { t } = useI18n()
@@ -99,6 +162,8 @@ export function AuthOnboarding({
   const [mode, setMode] = useState<Mode>(initialMode)
   const [authTab, setAuthTab] = useState<"login" | "signup">("signup")
   const [busy, setBusy] = useState(false)
+  const [vaultOpen, setVaultOpen] = useState(false)
+  const vaultAccounts = listVault()
 
   // Auth fields
   const [aName, setAName] = useState("")
@@ -134,18 +199,20 @@ export function AuthOnboarding({
           setBusy(false)
           return
         }
-        const acc = await api.post<Account>("/api/auth/register", {
+        const acc = await api.post<Account & { token?: string }>("/api/auth/register", {
           name: aName,
           businessName: aOrg,
           email: aEmail,
           phone: aPhone,
           password: aPass,
         })
+        saveToVault(acc)
         setWBusinessName(aOrg)
         setMode("wizard")
         onAuthenticated(acc)
       } else {
-        const acc = await api.post<Account>("/api/auth/login", { email: aEmail, password: aPass })
+        const acc = await api.post<Account & { token?: string }>("/api/auth/login", { email: aEmail, password: aPass })
+        saveToVault(acc)
         toast({ title: t("auth.welcomeBack") })
         if (acc.onboardingDone) {
           onAuthenticated(acc)
@@ -182,6 +249,7 @@ export function AuthOnboarding({
       } catch {
         /* non-critical */
       }
+      updateVaultAccount(acc)
       toast({ title: t("auth.welcomeBack") })
       onAuthenticated(acc)
     } catch {
@@ -262,6 +330,32 @@ export function AuthOnboarding({
                 {authTab === "signup" ? t("auth.login") : t("auth.signup")}
               </button>
             </p>
+            {/* Switch between accounts already logged in on this device */}
+            {vaultAccounts.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setVaultOpen(true)}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-primary/40 px-3 py-2.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/5"
+                >
+                  <UsersRound className="h-4 w-4" />
+                  {t("switch.useSavedAccount")} ({vaultAccounts.length})
+                </button>
+                <Dialog open={vaultOpen} onOpenChange={setVaultOpen}>
+                  <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle className="text-base">{t("switch.title")}</DialogTitle>
+                      <DialogDescription>{t("switch.desc")}</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                      {vaultAccounts.map((v) => (
+                        <VaultRow key={v.id} entry={v} />
+                      ))}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </>
+            )}
           </div>
         </div>
         <p className="mt-6 text-center text-[10px] text-muted-foreground">

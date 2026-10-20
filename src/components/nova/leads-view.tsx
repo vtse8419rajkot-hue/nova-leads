@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { useI18n } from "@/i18n"
 import { toast } from "@/hooks/use-toast"
 import { api, LEAD_STATUSES, SOURCES, PRIORITIES, relTime, type Lead, type TeamMember } from "./api"
+import { useWhatsApp } from "./whatsapp-send"
 import { StatusBadge, PriorityBadge, Avatar, EmptyState } from "./ui-bits"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,6 +26,7 @@ export function LeadsView({
   refreshKey: number
 }) {
   const { t, lang } = useI18n()
+  const wa = useWhatsApp()
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -235,9 +237,9 @@ export function LeadsView({
                         className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-400"
                         onClick={(e) => {
                           e.stopPropagation()
-                          window.open(`https://wa.me/91${l.phone.replace(/\D/g, "").slice(-10)}`, "_blank")
+                          wa.send(l.phone, "")
                         }}
-                        onKeyDown={(e) => e.key === "Enter" && window.open(`https://wa.me/91${l.phone.replace(/\D/g, "").slice(-10)}`, "_blank")}
+                        onKeyDown={(e) => e.key === "Enter" && wa.send(l.phone, "")}
                       >
                         <MessageCircle className="h-3.5 w-3.5" />
                       </span>

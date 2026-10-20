@@ -1,5 +1,7 @@
 // Nova Leads Service Worker - offline-first PWA
-const CACHE_NAME = "nova-leads-v2"
+// v3: network-first for page navigations so phones always get the latest app
+// code as soon as online (fixes stale bundles on installed PWA).
+const CACHE_NAME = "nova-leads-v3"
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",
@@ -78,7 +80,33 @@ self.addEventListener("fetch", (event) => {
     return
   }
 
-  // Static assets & pages: stale-while-revalidate
+  // Page navigations: network-first (fallback to cached page when offline)
+  if (req.mode === "navigate" || (req.headers.get("accept") || "").includes("text/html")) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          const copy = res.clone()
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy))
+          return res
+        })
+        .catch(() => caches.match(req).then((cached) => cached || caches.match("/")))
+    )
+    return
+  }
+
+  // Immutable build assets: cache-first (hashed file names)
+  if (url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(
+      caches.match(req).then((cached) => cached || fetch(req).then((res) => {
+        const copy = res.clone()
+        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy))
+        return res
+      }))
+    )
+    return
+  }
+
+  // Other static assets: stale-while-revalidate
   event.respondWith(
     caches.match(req).then((cached) => {
       const fetchPromise = fetch(req)

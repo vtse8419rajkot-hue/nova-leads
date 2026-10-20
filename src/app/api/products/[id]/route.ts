@@ -1,13 +1,19 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
-import { jsonOk, readBody, toStr, toNum } from "@/lib/api-utils"
+import { jsonOk, jsonError, readBody, toStr, toNum } from "@/lib/api-utils"
+import { requireAccount } from "@/lib/tenant"
 
 type Params = { params: Promise<{ id: string }> }
 
 // PATCH /api/products/[id]
 export async function PATCH(req: NextRequest, { params }: Params) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
   const { id } = await params
   const body = await readBody(req)
+  const existing = await db.product.findFirst({ where: { id, accountId: auth.account.id } })
+  if (!existing) return jsonError("Product not found", 404)
+
   const data: Record<string, unknown> = {}
   if ("name" in body) data.name = toStr(body.name).trim()
   if ("description" in body) data.description = toStr(body.description) || null
@@ -22,8 +28,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/products/[id]
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, { params }: Params) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
   const { id } = await params
+  const existing = await db.product.findFirst({ where: { id, accountId: auth.account.id }, select: { id: true } })
+  if (!existing) return jsonError("Product not found", 404)
   await db.product.update({ where: { id }, data: { active: false } })
   return jsonOk({ ok: true })
 }

@@ -1,11 +1,14 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { jsonOk, jsonError, readBody, toStr } from "@/lib/api-utils"
+import { requireAccount } from "@/lib/tenant"
 
 // GET /api/leads/[id]/messages - list personal messages of one lead
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
   const { id } = await params
-  const lead = await db.lead.findUnique({ where: { id }, select: { id: true } })
+  const lead = await db.lead.findFirst({ where: { id, accountId: auth.account.id }, select: { id: true } })
   if (!lead) return jsonError("Lead not found", 404)
   const messages = await db.leadMessage.findMany({
     where: { leadId: id },
@@ -16,8 +19,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 // POST /api/leads/[id]/messages - create a personal message for this lead (no limit)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
   const { id } = await params
-  const lead = await db.lead.findUnique({ where: { id }, select: { id: true } })
+  const lead = await db.lead.findFirst({ where: { id, accountId: auth.account.id }, select: { id: true } })
   if (!lead) return jsonError("Lead not found", 404)
 
   const body = await readBody(req)

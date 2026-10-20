@@ -4,8 +4,9 @@ import { jsonOk, readBody, toStr, toNum } from "@/lib/api-utils"
 
 // POST /api/ai/message - generate a follow-up WhatsApp message in the chosen language
 export async function POST(req: NextRequest) {
+  let body: Record<string, unknown> = {}
   try {
-    const body = await readBody(req)
+    body = await readBody(req)
     const leadName = toStr(body.leadName)
     const requirement = toStr(body.requirement)
     const value = toNum(body.value)

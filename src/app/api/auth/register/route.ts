@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     data: { name, businessName: businessName || null, email, phone: phone || null, passwordHash: hashPassword(password) },
   })
 
-  const res = NextResponse.json(publicAccount(account), { status: 201 })
+  const res = NextResponse.json({ ...publicAccount(account), token: makeSessionToken(account.id) }, { status: 201 })
   res.cookies.set(sessionCookie(makeSessionToken(account.id)))
   return res
 }

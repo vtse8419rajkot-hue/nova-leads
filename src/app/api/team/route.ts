@@ -1,10 +1,16 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { jsonOk, readBody, toStr } from "@/lib/api-utils"
+import { requireAccount } from "@/lib/tenant"
 
 // GET /api/team - members with lead stats
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
+  const { account } = auth
+
   const members = await db.teamMember.findMany({
+    where: { accountId: account.id },
     orderBy: { createdAt: "asc" },
     include: { leads: true },
   })
@@ -19,6 +25,10 @@ export async function GET() {
 
 // POST /api/team
 export async function POST(req: NextRequest) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
+  const { account } = auth
+
   const body = await readBody(req)
   const name = toStr(body.name).trim()
   if (!name) return jsonOk({ error: "Name required" }, 400)
@@ -26,6 +36,7 @@ export async function POST(req: NextRequest) {
   const colors = ["#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4", "#ec4899", "#84cc16"]
   const member = await db.teamMember.create({
     data: {
+      accountId: account.id,
       name,
       email: toStr(body.email) || null,
       phone: toStr(body.phone) || null,

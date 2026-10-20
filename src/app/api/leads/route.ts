@@ -1,10 +1,15 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { jsonOk, readBody, toStr, toNum, toDate, jsonError } from "@/lib/api-utils"
+import { requireAccount } from "@/lib/tenant"
 import { FOLLOWUP_AUTO_MESSAGES } from "@/lib/message-templates"
 
 // GET /api/leads - list with filters/search
 export async function GET(req: NextRequest) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
+  const { account } = auth
+
   const sp = req.nextUrl.searchParams
   const search = sp.get("search")?.trim() || ""
   const status = sp.get("status") || ""
@@ -12,7 +17,7 @@ export async function GET(req: NextRequest) {
   const priority = sp.get("priority") || ""
   const assignedToId = sp.get("assignedToId") || ""
 
-  const where: Record<string, unknown> = {}
+  const where: Record<string, unknown> = { accountId: account.id }
   if (status) where.status = status
   if (source) where.source = source
   if (priority) where.priority = priority
@@ -37,6 +42,10 @@ export async function GET(req: NextRequest) {
 
 // POST /api/leads - create lead
 export async function POST(req: NextRequest) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
+  const { account } = auth
+
   const body = await readBody(req)
   const name = toStr(body.name).trim()
   const phone = toStr(body.phone).trim()
@@ -47,6 +56,7 @@ export async function POST(req: NextRequest) {
 
   const lead = await db.lead.create({
     data: {
+      accountId: account.id,
       name,
       phone,
       email: toStr(body.email) || null,

@@ -13,6 +13,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Sparkles } from "lucide-react"
 import { api, SOURCES, PRIORITIES, LEAD_STATUSES, toLocalInput, type Lead, type TeamMember } from "./api"
+import { FollowUpField } from "./follow-up-picker"
+
+/** toISOString that never throws (invalid date -> null) */
+export function safeIso(v: string): string | null {
+  if (!v) return null
+  const d = new Date(v)
+  return isNaN(d.getTime()) ? null : d.toISOString()
+}
 
 export function LeadForm({
   open,
@@ -111,7 +119,7 @@ export function LeadForm({
       const payload = {
         ...form,
         value: Number(form.value) || 0,
-        nextFollowUpAt: form.nextFollowUpAt ? new Date(form.nextFollowUpAt).toISOString() : null,
+        nextFollowUpAt: safeIso(form.nextFollowUpAt),
       }
       const saved = lead
         ? await api.patch<Lead>(`/api/leads/${lead.id}`, payload)
@@ -219,11 +227,11 @@ export function LeadForm({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="lead-followup">{t("leads.nextFollowUp")}</Label>
-              <Input
+              <FollowUpField
                 id="lead-followup"
-                type="datetime-local"
                 value={form.nextFollowUpAt}
-                onChange={(e) => set("nextFollowUpAt", e.target.value)}
+                onChange={(v) => set("nextFollowUpAt", v)}
+                placeholder={t("fu.placeholder")}
               />
             </div>
           </div>

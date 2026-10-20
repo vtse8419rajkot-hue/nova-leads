@@ -1,13 +1,16 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { jsonError, jsonOk } from "@/lib/api-utils"
+import { requireAccount } from "@/lib/tenant"
 
 type Params = { params: Promise<{ id: string }> }
 
 // GET /api/attachments/[id] - download / view file
 export async function GET(req: NextRequest, { params }: Params) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
   const { id } = await params
-  const att = await db.leadAttachment.findUnique({ where: { id } })
+  const att = await db.leadAttachment.findFirst({ where: { id, lead: { accountId: auth.account.id } } })
   if (!att) return jsonError("Attachment not found", 404)
 
   const bytes = new Uint8Array(Buffer.from(att.data, "base64"))
@@ -24,10 +27,12 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/attachments/[id]
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, { params }: Params) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
   const { id } = await params
-  const att = await db.leadAttachment.findUnique({ where: { id }, select: { id: true } })
+  const att = await db.leadAttachment.findFirst({ where: { id, lead: { accountId: auth.account.id } }, select: { id: true } })
   if (!att) return jsonError("Attachment not found", 404)
-  await db.leadAttachment.delete({ where: { id } })
+  await db.leadAttachment.delete({ where: { id: att.id } })
   return jsonOk({ ok: true })
 }

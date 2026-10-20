@@ -248,7 +248,7 @@ export function AlarmProvider({ children }: { children: React.ReactNode }) {
               requireInteraction: true,
               vibrate: [400, 250, 400, 250, 900],
               data: { leadId: alarm.leadId },
-            })
+            } as NotificationOptions & { vibrate?: number[] })
           )
           .catch(() => {})
       } catch {
@@ -477,7 +477,6 @@ export function AlarmProvider({ children }: { children: React.ReactNode }) {
         assignedTo: { id: "test", name: t("app.name"), avatarColor: "#10b981" },
       },
     })
-    void s
   }, [fire, t])
 
   const previewSound = useCallback((soundId: string): StopFn => {

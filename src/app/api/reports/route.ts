@@ -1,10 +1,17 @@
+import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { jsonOk } from "@/lib/api-utils"
+import { requireAccount } from "@/lib/tenant"
 
 // GET /api/reports - aggregated report data
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
+  const { account } = auth
+
   const [leads, teamMembers, quotes] = await Promise.all([
     db.lead.findMany({
+      where: { accountId: account.id },
       select: {
         status: true,
         source: true,
@@ -13,8 +20,8 @@ export async function GET() {
         assignedToId: true,
       },
     }),
-    db.teamMember.findMany(),
-    db.quote.findMany({ select: { total: true, status: true, type: true, createdAt: true } }),
+    db.teamMember.findMany({ where: { accountId: account.id } }),
+    db.quote.findMany({ where: { accountId: account.id }, select: { total: true, status: true, type: true, createdAt: true } }),
   ])
 
   // By source

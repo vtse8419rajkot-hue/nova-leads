@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     return jsonError("Wrong email or password", 401)
   }
 
-  const res = NextResponse.json(publicAccount(account))
+  const res = NextResponse.json({ ...publicAccount(account), token: makeSessionToken(account.id) })
   res.cookies.set(sessionCookie(makeSessionToken(account.id)))
   return res
 }

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
+import { requireAccount } from "@/lib/tenant"
 
 function csvEscape(v: unknown): string {
   const s = v === null || v === undefined ? "" : String(v)
@@ -10,8 +11,12 @@ function csvEscape(v: unknown): string {
 }
 
 // GET /api/export/leads
-export async function GET(_req: NextRequest) {
-  const leads = await db.lead.findMany({ include: { assignedTo: true }, orderBy: { createdAt: "desc" } })
+export async function GET(req: NextRequest) {
+  const auth = await requireAccount(req)
+  if ("res" in auth) return auth.res
+  const { account } = auth
+
+  const leads = await db.lead.findMany({ where: { accountId: account.id }, include: { assignedTo: true }, orderBy: { createdAt: "desc" } })
   const header = ["Name", "Phone", "Email", "Company", "City", "Source", "Status", "Priority", "Value", "Requirement", "Tags", "Assigned To", "AI Score", "Created"]
   const rows = leads.map((l) =>
     [

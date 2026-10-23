@@ -5,7 +5,9 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  // Dummy local url - real data lives in Turso (libSQL) via the driver
+  // adapter (see prisma.config.ts for CLI and src/lib/db.ts for runtime).
+  url      = "file:./dev.db"
 }
 
 // ============ TEAM ============

@@ -1,6 +1,6 @@
 // Nova Leads Service Worker - offline-first PWA
 // v4: background follow-up reminders via Web Push (works when app is closed)
-const CACHE_NAME = "nova-leads-v4"
+const CACHE_NAME = "nova-leads-v5"
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",
@@ -59,11 +59,13 @@ self.addEventListener("push", (event) => {
   }
   event.waitUntil(
     (async () => {
-      try {
-        const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
-        if (clientList.some((c) => c.visibilityState === "visible")) return
-      } catch {
-        // if client check fails, still show the notification
+      if (!data.force) {
+        try {
+          const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
+          if (clientList.some((c) => c.visibilityState === "visible")) return
+        } catch {
+          // if client check fails, still show the notification
+        }
       }
       await self.registration.showNotification(title, options)
     })()

@@ -22,6 +22,8 @@ export interface PushPayload {
   id?: string
   leadId?: string | null
   url?: string
+  /** show the OS notification even when the app window is visible (test pushes) */
+  force?: boolean
 }
 
 export type SendResult = "sent" | "gone" | "failed"

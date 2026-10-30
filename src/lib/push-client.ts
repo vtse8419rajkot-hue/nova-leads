@@ -64,7 +64,7 @@ export async function ensurePushSubscription(leadMinutes = 0): Promise<boolean> 
 /** Ask the server to send a test push to all of this account's devices. */
 export async function sendTestPush(): Promise<{ ok: boolean; sent: number }> {
   try {
-    const res = await fetch("/api/reminders/test", {
+    const res = await fetch("/api/reminders/test-push", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{}",

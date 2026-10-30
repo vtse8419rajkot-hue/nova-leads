@@ -440,7 +440,14 @@
     "notificationTitle": "फॉलो-अप: {name}",
     "notificationBody": "{name}ची संपूर्ण माहिती पाहण्यासाठी दाबा",
     "taskDue": "कामाची वेळ आली",
-    "details": "तपशील"
+    "details": "तपशील",
+    "push": {
+      "closedHint": "Reminders arrive even when the app is closed",
+      "testDesc": "Sends a test notification to all your devices via web push.",
+      "testBtn": "Test background reminder",
+      "testOk": "Test reminder sent! Check your notifications.",
+      "testFail": "Could not send test. Enable alarms first and try again."
+    }
   },
   "templates": {
     "title": "मेसेज टेम्पलेट",

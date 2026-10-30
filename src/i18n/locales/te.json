@@ -440,7 +440,14 @@
     "notificationTitle": "ఫాలో-అప్: {name}",
     "notificationBody": "{name} పూర్తి వివరాలు చూడటానికి నొక్కండి",
     "taskDue": "పని సమయం అయింది",
-    "details": "వివరాలు"
+    "details": "వివరాలు",
+    "push": {
+      "closedHint": "Reminders arrive even when the app is closed",
+      "testDesc": "Sends a test notification to all your devices via web push.",
+      "testBtn": "Test background reminder",
+      "testOk": "Test reminder sent! Check your notifications.",
+      "testFail": "Could not send test. Enable alarms first and try again."
+    }
   },
   "templates": {
     "title": "సందేశ టెంప్లేట్లు",

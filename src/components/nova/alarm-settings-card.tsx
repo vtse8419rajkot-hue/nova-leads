@@ -11,13 +11,14 @@ import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import {
-  BellRing, Play, Square, Vibrate, Volume2, FlaskConical, TriangleAlert, CheckCircle2,
+  BellRing, Play, Square, Vibrate, Volume2, FlaskConical, TriangleAlert, CheckCircle2, Loader2, Send,
 } from "lucide-react"
 
 export function AlarmSettingsCard() {
   const { t } = useI18n()
   const { permission, settings, saveSettings, requestPermission, testAlarm, previewSound } = useAlarm()
   const [playingId, setPlayingId] = useState<string | null>(null)
+  const [pushTesting, setPushTesting] = useState(false)
   const stopPreviewRef = useRef<(() => void) | null>(null)
 
   const preview = (id: string) => {
@@ -206,6 +207,35 @@ export function AlarmSettingsCard() {
           <Button size="sm" onClick={onTest}>
             <FlaskConical className="me-2 h-4 w-4" />
             {t("alarm.test")}
+          </Button>
+        </div>
+
+        {/* background push reminder (works when app is closed) */}
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5 dark:border-emerald-900 dark:bg-emerald-950/40">
+          <p className="flex items-center gap-1.5 text-sm font-semibold">
+            <BellRing className="h-4 w-4 text-emerald-600" />
+            {t("alarm.push.closedHint")}
+          </p>
+          <p className="mb-2.5 text-xs text-muted-foreground">{t("alarm.push.testDesc")}</p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pushTesting}
+            onClick={async () => {
+              setPushTesting(true)
+              try {
+                const { sendTestPush, ensurePushSubscription } = await import("@/lib/push-client")
+                await ensurePushSubscription(settings.leadMinutes)
+                const res = await sendTestPush()
+                if (res.ok && res.sent > 0) toast({ title: t("alarm.push.testOk") })
+                else toast({ title: t("alarm.push.testFail") })
+              } finally {
+                setPushTesting(false)
+              }
+            }}
+          >
+            {pushTesting ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <Send className="me-2 h-4 w-4" />}
+            {t("alarm.push.testBtn")}
           </Button>
         </div>
       </div>

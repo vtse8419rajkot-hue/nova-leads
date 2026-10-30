@@ -440,7 +440,14 @@
     "notificationTitle": "பின்தொடர்தல்: {name}",
     "notificationBody": "{name} அவர்களின் முழு விவரங்களைப் பார்க்க அழுத்தவும்",
     "taskDue": "பணியின் நேரம் ஆனது",
-    "details": "விவரங்கள்"
+    "details": "விவரங்கள்",
+    "push": {
+      "closedHint": "Reminders arrive even when the app is closed",
+      "testDesc": "Sends a test notification to all your devices via web push.",
+      "testBtn": "Test background reminder",
+      "testOk": "Test reminder sent! Check your notifications.",
+      "testFail": "Could not send test. Enable alarms first and try again."
+    }
   },
   "templates": {
     "title": "செய்தி டெம்ப்ளேட்",

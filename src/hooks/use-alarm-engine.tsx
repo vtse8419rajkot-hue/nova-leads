@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { playAlarm, startVibration, unlockAudio, vibrateOnce, type StopFn } from "@/lib/alarm-sounds"
 import { api } from "@/components/nova/api"
+import { ensurePushSubscription } from "@/lib/push-client"
 import { useI18n } from "@/i18n"
 
 // ---------------- types ----------------
@@ -196,6 +197,14 @@ export function AlarmProvider({ children }: { children: React.ReactNode }) {
     navigator.serviceWorker.addEventListener("message", onMsg)
     return () => navigator.serviceWorker.removeEventListener("message", onMsg)
   }, [])
+
+  // background push subscription - reminders arrive even when the app is
+  // closed. Runs when permission is granted and whenever the "ring before"
+  // setting changes (server mirrors the minutes per device).
+  useEffect(() => {
+    if (permission !== "granted") return
+    void ensurePushSubscription(settings.leadMinutes)
+  }, [permission, settings.leadMinutes])
 
   const saveSettings = useCallback((patch: Partial<AlarmSettings>) => {
     setSettings((prev) => {
@@ -398,6 +407,8 @@ export function AlarmProvider({ children }: { children: React.ReactNode }) {
       // confirm with sound + vibration so the user feels it working
       vibrateOnce([150, 80, 150])
       playAlarm("chime", { volume: 0.5, loop: false })
+      // register web push so reminders also arrive when the app is closed
+      void ensurePushSubscription(settingsRef.current.leadMinutes)
     }
     return result === "granted"
   }, [])

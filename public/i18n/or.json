@@ -440,7 +440,14 @@
     "notificationTitle": "ଫଲୋ-ଅପ୍: {name}",
     "notificationBody": "{name}ଙ୍କ ସମ୍ପୂର୍ଣ୍ଣ ସୂଚନା ଦେଖିବା ପାଇଁ ଦବାନ୍ତୁ",
     "taskDue": "ଟାସ୍କର ସମୟ ହେଲା",
-    "details": "ବିବରଣୀ"
+    "details": "ବିବରଣୀ",
+    "push": {
+      "closedHint": "Reminders arrive even when the app is closed",
+      "testDesc": "Sends a test notification to all your devices via web push.",
+      "testBtn": "Test background reminder",
+      "testOk": "Test reminder sent! Check your notifications.",
+      "testFail": "Could not send test. Enable alarms first and try again."
+    }
   },
   "templates": {
     "title": "ମେସେଜ୍ ଟେମ୍ପଲେଟ୍",

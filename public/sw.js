@@ -1,7 +1,6 @@
 // Nova Leads Service Worker - offline-first PWA
-// v3: network-first for page navigations so phones always get the latest app
-// code as soon as online (fixes stale bundles on installed PWA).
-const CACHE_NAME = "nova-leads-v3"
+// v4: background follow-up reminders via Web Push (works when app is closed)
+const CACHE_NAME = "nova-leads-v4"
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",
@@ -25,6 +24,75 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME && k !== API_CACHE).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
+  )
+})
+
+// ---------------- Web Push (background reminders) ----------------
+
+function urlB64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/")
+  const raw = atob(base64)
+  const output = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) output[i] = raw.charCodeAt(i)
+  return output
+}
+
+// Push received at follow-up time (server cron) -> show system notification.
+// Skipped when the app window is visible - the in-app full-screen alarm rings.
+self.addEventListener("push", (event) => {
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch {
+    data = { title: "\u23f0 Nova Leads", body: event.data ? event.data.text() : "" }
+  }
+  const title = data.title || "\u23f0 Nova Leads"
+  const options = {
+    body: data.body || "",
+    tag: data.tag || "nova-push",
+    requireInteraction: true,
+    vibrate: [400, 250, 400, 250, 900],
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    data: { leadId: data.leadId || null },
+  }
+  event.waitUntil(
+    (async () => {
+      try {
+        const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
+        if (clientList.some((c) => c.visibilityState === "visible")) return
+      } catch {
+        // if client check fails, still show the notification
+      }
+      await self.registration.showNotification(title, options)
+    })()
+  )
+})
+
+// Browser rotated the push subscription -> re-subscribe and re-upload
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    (async () => {
+      try {
+        const res = await fetch("/api/push/public-key")
+        if (!res.ok) return
+        const { publicKey } = await res.json()
+        if (!publicKey) return
+        const sub = await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlB64ToUint8Array(publicKey),
+        })
+        const json = sub.toJSON()
+        await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: sub.endpoint, keys: json.keys }),
+        })
+      } catch {
+        // best effort - next app open will re-subscribe anyway
+      }
+    })()
   )
 })
 

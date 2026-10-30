@@ -82,6 +82,7 @@ model Lead {
   assignedToId String?
   assignedTo  TeamMember? @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
   nextFollowUpAt DateTime?
+  reminderSentFor DateTime? // follow-up time already fired as background push (dedupe)
   lostReason  String?
   // When won -> becomes contact
   convertedAt DateTime?
@@ -119,8 +120,20 @@ model Task {
   notes     String?
   assignedToId String?
   assignedTo  TeamMember? @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  reminderSentFor DateTime? // dueAt already fired as background push (dedupe)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============ PUSH SUBSCRIPTIONS (background reminders when app closed) ============
+model PushSubscription {
+  id        String   @id @default(cuid())
+  accountId String? // owning business account
+  endpoint  String   @unique // web-push endpoint URL
+  p256dh    String // client public key
+  auth      String // auth secret
+  leadMinutes Int    @default(0) // notify X minutes before due (mirrors device alarm setting)
+  createdAt DateTime @default(now())
 }
 
 // ============ CONTACTS (converted customers) ============

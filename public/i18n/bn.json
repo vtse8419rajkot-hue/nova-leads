@@ -440,7 +440,14 @@
     "notificationTitle": "ফলো-আপ: {name}",
     "notificationBody": "{name} এর সম্পূর্ণ তথ্য দেখতে চাপুন",
     "taskDue": "কাজের সময় হয়ে গেছে",
-    "details": "বিবরণ"
+    "details": "বিবরণ",
+    "push": {
+      "closedHint": "Reminders arrive even when the app is closed",
+      "testDesc": "Sends a test notification to all your devices via web push.",
+      "testBtn": "Test background reminder",
+      "testOk": "Test reminder sent! Check your notifications.",
+      "testFail": "Could not send test. Enable alarms first and try again."
+    }
   },
   "templates": {
     "title": "বার্তা টেমপ্লেট",

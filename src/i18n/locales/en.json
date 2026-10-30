@@ -444,7 +444,14 @@
     "notificationTitle": "Follow-up: {name}",
     "notificationBody": "Tap to see {name}'s full details",
     "taskDue": "Task due",
-    "details": "Details"
+    "details": "Details",
+    "push": {
+      "closedHint": "Reminders arrive even when the app is closed",
+      "testDesc": "Sends a test notification to all your devices via web push.",
+      "testBtn": "Test background reminder",
+      "testOk": "Test reminder sent! Check your notifications.",
+      "testFail": "Could not send test. Enable alarms first and try again."
+    }
   },
   "templates": {
     "title": "Message Templates",

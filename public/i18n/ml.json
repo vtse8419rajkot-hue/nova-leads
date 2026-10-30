@@ -440,7 +440,14 @@
     "notificationTitle": "ഫോളോ-അപ്പ്: {name}",
     "notificationBody": "{name} എന്നതിന്റെ മുഴുവൻ വിവരങ്ങൾ കാണാൻ ടാപ്പ് ചെയ്യുക",
     "taskDue": "ജോലിയുടെ സമയമായി",
-    "details": "വിവരങ്ങൾ"
+    "details": "വിവരങ്ങൾ",
+    "push": {
+      "closedHint": "Reminders arrive even when the app is closed",
+      "testDesc": "Sends a test notification to all your devices via web push.",
+      "testBtn": "Test background reminder",
+      "testOk": "Test reminder sent! Check your notifications.",
+      "testFail": "Could not send test. Enable alarms first and try again."
+    }
   },
   "templates": {
     "title": "സന്ദേശ ടെംപ്ലേറ്റുകൾ",
